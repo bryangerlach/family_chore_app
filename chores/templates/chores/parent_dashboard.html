@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Parent Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+{% load chore_extras %}
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">🔒 Parent Dashboard</h1>
+            <div class="flex gap-3">
+                <a href="{% url 'profile_list' %}" class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700">Home</a>
+                <a href="{% url 'parent_logout' %}" class="bg-red-900/50 border border-red-700 px-4 py-2 rounded-lg text-sm font-medium text-red-200 hover:bg-red-900">Lock / Logout</a>
+            </div>
+        </div>
+
+        <!-- PENDING APPROVALS -->
+        <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-amber-400">🔔 Pending Approvals</h2>
+            
+            {% if waiting_tasks %}
+                <div class="space-y-4">
+                    {% for ts in waiting_tasks %}
+                        <div class="bg-slate-700/50 p-4 rounded-xl flex items-center justify-between border border-slate-600">
+                            <div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-blue-400 bg-blue-900/50 px-2 py-0.5 rounded">{{ ts.child.name }}</span>
+                                <h4 class="text-lg font-bold mt-1">{{ ts.task.title }}</h4>
+                            </div>
+                            <form action="{% url 'approve_task' ts.id %}" method="POST">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-2 rounded-lg text-sm shadow">
+                                    Approve ✅
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-slate-400 text-sm">No pending tasks waiting for approval right now!</p>
+            {% endif %}
+        </div>
+
+        <!-- WEEKLY HISTORY VIEW -->
+        <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-purple-400">📅 Weekly History Grid (Past 7 Days)</h2>
+            
+            {% if weekly_data %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-700 text-xs text-slate-400">
+                                <th class="p-2">Child / Task</th>
+                                {% for d in dates_list %}
+                                    <th class="p-2 text-center">{{ d|date:"M j" }}<br><span class="text-[10px] text-slate-500">{{ d|date:"D" }}</span></th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700/50 text-sm">
+                            {% for wd in weekly_data %}
+                                <tr class="bg-slate-700/20">
+                                    <td colspan="{{ dates_list|length|add:1 }}" class="p-2 font-bold text-blue-400 bg-slate-700/40">
+                                        👦 {{ wd.child.name }}
+                                    </td>
+                                </tr>
+                                {% for task in tasks %}
+                                    <tr>
+                                        <td class="p-2.5 font-medium text-slate-300 text-xs pl-4">
+                                            • {{ task.title }}
+                                        </td>
+                                        {% for d in dates_list %}
+                                            <td class="p-2 text-center">
+                                                {% with status=wd.day_statuses|get_item:d|get_item:task.id %}
+                                                    <form action="{% url 'update_weekly_status' wd.child.id task.id d|date:'Y-m-d' %}" method="POST" class="inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="inline-block w-6 h-6 rounded-full font-bold leading-6 text-xs transition hover:scale-110 
+                                                            {% if status == 'approved' %} bg-green-900 text-green-300 border border-green-700 
+                                                            {% elif status == 'waiting' %} bg-yellow-900 text-yellow-300 border border-yellow-700 
+                                                            {% else %} bg-slate-700 text-slate-500 {% endif %}" 
+                                                            title="Click to toggle status for {{ d|date:'M j' }}">
+                                                            {% if status == 'approved' %}✓{% elif status == 'waiting' %}⏳{% else %}·{% endif %}
+                                                        </button>
+                                                    </form>
+                                                {% endwith %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-slate-400 text-sm">No weekly history data available yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- CHILDREN TASK PROGRESS OVERVIEW (TODAY) -->
+        <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-slate-200">📊 Today's Progress</h2>
+            
+            <div class="space-y-6">
+                {% for cp in children_progress %}
+                    <div class="bg-slate-700/40 border border-slate-700 rounded-xl p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-bold text-blue-400">👦 {{ cp.child.name }}</h3>
+                            <span class="text-sm font-medium text-slate-300">
+                                {{ cp.approved_tasks }} / {{ cp.total_tasks }} Completed ({{ cp.percent }}%)
+                            </span>
+                        </div>
+                        
+                        <!-- Progress bar -->
+                        <div class="w-full bg-slate-700 h-2.5 rounded-full mb-4 overflow-hidden">
+                            <div class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: {{ cp.percent }}%;"></div>
+                        </div>
+
+                        <!-- Task list pills for this child -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {% for ts in cp.statuses %}
+                                <div class="bg-slate-800/80 border border-slate-700/60 px-3 py-2 rounded-lg flex justify-between items-center text-xs">
+                                    <span class="truncate pr-2 font-medium">{{ ts.task.title }}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-2 py-0.5 rounded font-semibold whitespace-nowrap
+                                            {% if ts.status == 'approved' %} bg-green-900/60 text-green-300 border border-green-700/50
+                                            {% elif ts.status == 'waiting' %} bg-yellow-900/60 text-yellow-300 border border-yellow-700/50
+                                            {% else %} bg-slate-700 text-slate-400 {% endif %}">
+                                            {{ ts.get_status_display }}
+                                        </span>
+                                        
+                                        {% if ts.status != 'pending' %}
+                                            <form action="{% url 'reset_task' ts.id %}" method="POST" class="inline">
+                                                {% csrf_token %}
+                                                <button type="submit" title="Uncheck / Reset to Pending" class="text-slate-400 hover:text-red-400 font-bold px-1.5 py-0.5 bg-slate-700 rounded hover:bg-slate-600 transition">
+                                                    ↺
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-slate-400 text-sm">No child profiles found.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- MANAGE TASKS (CHORES) -->
+        <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-emerald-400">📝 Manage Chores & Tasks</h2>
+            
+            <form action="{% url 'add_task' %}" method="POST" class="space-y-3 mb-6">
+                {% csrf_token %}
+                <div class="flex gap-4">
+                    <input type="text" name="title" placeholder="Task Title (e.g., Brush Teeth, Do Homework)" required class="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white flex-grow focus:outline-none focus:border-emerald-500">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2 rounded-lg text-sm shadow">Add Task</button>
+                </div>
+                <input type="text" name="description" placeholder="Description/Rule (optional, e.g., Morning & Night, Try 3 Bites)" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-emerald-500">
+            </form>
+
+            <div class="space-y-2">
+                {% for task in tasks %}
+                    <div class="bg-slate-700/50 border border-slate-600 px-4 py-2.5 rounded-lg flex justify-between items-center text-sm">
+                        <div>
+                            <strong>{{ task.title }}</strong>
+                            {% if task.description %}<span class="text-slate-400 ml-2 text-xs">({{ task.description }})</span>{% endif %}
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-slate-400 text-sm">No chores created yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- MANAGE PROFILES -->
+        <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <h2 class="text-xl font-semibold mb-4 text-blue-400">👤 Manage Profiles</h2>
+            
+            <form action="{% url 'add_profile' %}" method="POST" class="flex flex-wrap gap-3 mb-6 items-center">
+                {% csrf_token %}
+                <input type="text" name="emoji" value="👦" maxlength="5" title="Profile Emoji" class="w-16 text-center bg-slate-700 border border-slate-600 rounded-lg px-2 py-2 text-white text-xl focus:outline-none focus:border-blue-500">
+                <input type="text" name="name" placeholder="Name (e.g., Jamie, Theo)" required class="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white flex-grow focus:outline-none focus:border-blue-500">
+                <select name="user_type" class="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="child">Child</option>
+                    <option value="parent">Parent</option>
+                </select>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2 rounded-lg text-sm shadow">Add Profile</button>
+            </form>
+
+            <div class="flex flex-wrap gap-2">
+                {% for p in profiles %}
+                    <span class="bg-slate-700 border border-slate-600 px-3 py-1.5 rounded-lg text-sm flex items-center gap-2">
+                        <span>{{ p.emoji }}</span> {{ p.name }} <span class="text-xs text-slate-400">({{ p.user_type }})</span>
+                    </span>
+                {% empty %}
+                    <p class="text-slate-400 text-sm">No profiles created yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

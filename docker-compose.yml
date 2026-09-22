@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  web:
+    image: bryangerlach/family_chore_app:latest
+    container_name: family_chore_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - sqlite_data:/app
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=django-insecure-change-this-to-a-secure-random-key-in-production
+
+volumes:
+  sqlite_data:
