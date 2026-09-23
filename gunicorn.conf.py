@@ -6,4 +6,4 @@ workers = 3  # The number of worker processes for concurrency (adjust based on s
 activate_base = True  # Activate your virtual environment if applicable
 
 # Path to your Django project's main WSGI application file (usually manage.py)
-wsgi_app = "chores.wsgi.application"
+wsgi_app = "config.wsgi.application"
