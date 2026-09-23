@@ -26,4 +26,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ vars.DOCKERHUB_USERNAME }}/family_chores_app:latest
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/family_chore_app:latest
