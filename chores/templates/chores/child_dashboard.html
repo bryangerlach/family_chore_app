@@ -2,64 +2,60 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ profile.name }}'s Tasks</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-6">
-    <div class="max-w-2xl mx-auto">
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
+    <div class="max-w-xl mx-auto">
         <!-- Top Header & Profile Switcher -->
-        <div class="flex justify-between items-center mb-6">
-            <div class="flex items-center gap-3">
+        <div class="flex justify-between items-center bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
+            <div class="flex items-center gap-4">
                 <!-- Clickable Emoji that toggles the emoji picker drawer -->
-                <button onclick="toggleEmojiPicker()" class="text-4xl bg-slate-800 border border-slate-700 p-2 rounded-2xl shadow hover:scale-105 transition" title="Change your icon!">
+                <button onclick="toggleEmojiPicker()" class="text-5xl sm:text-6xl bg-slate-700/80 border border-slate-600 p-3 rounded-2xl shadow hover:scale-105 active:scale-95 transition" title="Change your icon!">
                     {{ profile.emoji }}
                 </button>
                 <div>
-                    <h1 class="text-3xl font-bold text-slate-100">Hi, {{ profile.name }}! 👋</h1>
-                    <p class="text-slate-400 text-sm">Complete your tasks to earn tablet time!</p>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-100">Hi, {{ profile.name }}! 👋</h1>
+                    <p class="text-slate-400 text-xs sm:text-sm">Complete your tasks to earn tablet time!</p>
                 </div>
             </div>
-            <a href="{% url 'profile_list' %}" class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-700 shadow transition">Switch User</a>
+            <a href="{% url 'profile_list' %}" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-slate-300 shadow transition active:scale-95">Switch</a>
         </div>
 
         <!-- Hidden Emoji Picker Drawer -->
-        <div id="emojiPicker" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 shadow-xl">
+        <div id="emojiPicker" class="hidden bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
             <p class="text-sm font-semibold text-slate-300 mb-3">Choose your profile icon:</p>
-            <div class="flex flex-wrap gap-2">
-                <!-- Each emoji button has its own mini-form with a CSRF token -->
-                {% with emojis="👦,👧,🦖,🚀,🦄,⚽,🤖,⭐,🐱,🎮" %}
-                    <!-- We can loop or list them out directly with individual forms -->
-                {% endwith %}
-                
+            <div class="flex flex-wrap gap-3 justify-center">
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="👦" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">👦</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="👦" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">👦</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="👧" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">👧</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="👧" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">👧</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🦖" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">🦖</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="🦖" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🦖</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🚀" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">🚀</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="🚀" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🚀</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🦄" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">🦄</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="🦄" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🦄</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="⚽" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">⚽</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="⚽" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">⚽</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🤖" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">🤖</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="🤖" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🤖</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="⭐" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">⭐</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="⭐" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">⭐</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🐱" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">🐱</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="🐱" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🐱</button>
                 </form>
                 <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🎮" class="text-2xl p-2 bg-slate-700 hover:bg-slate-600 rounded-xl">🎮</button>
+                    {% csrf_token %}<button type="submit" name="emoji" value="🎮" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🎮</button>
                 </form>
             </div>
         </div>
@@ -67,29 +63,34 @@
         <!-- Task List Cards -->
         <div class="space-y-4">
             {% for ts in task_statuses %}
-                <div class="bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl border border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div class="w-full sm:w-auto">
-                        <h3 class="text-lg sm:text-xl font-bold text-slate-100">{{ ts.task.title }}</h3>
-                        {% if ts.task.description %}<p class="text-xs sm:text-sm text-slate-400 mt-0.5">{{ ts.task.description }}</p>{% endif %}
+                <div class="bg-slate-800 rounded-3xl p-6 shadow-xl border border-slate-700 flex flex-col gap-4">
+                    <div>
+                        <h3 class="text-xl sm:text-2xl font-bold text-slate-100 mb-1">{{ ts.task.title }}</h3>
+                        {% if ts.task.description %}<p class="text-sm sm:text-base text-slate-400">{{ ts.task.description }}</p>{% endif %}
                     </div>
-                    <div class="w-full sm:w-auto flex justify-end">
+                    
+                    <div class="pt-2 flex justify-end">
                         {% if ts.status == 'pending' %}
-                            <form action="{% url 'request_approval' ts.id %}" method="POST" class="w-full sm:w-auto">
+                            <form action="{% url 'request_approval' ts.id %}" method="POST" class="w-full">
                                 {% csrf_token %}
-                                <button type="submit" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-6 py-3 rounded-xl shadow transition active:scale-95 text-sm whitespace-nowrap">
+                                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-extrabold text-base sm:text-lg py-4 px-6 rounded-2xl shadow-lg transition">
                                     Done! Ask Parent 🙋‍♂️
                                 </button>
                             </form>
                         {% elif ts.status == 'waiting' %}
-                            <span class="w-full text-center sm:w-auto bg-yellow-900/60 border border-yellow-700 text-yellow-300 font-semibold px-4 py-2.5 rounded-xl text-sm inline-block">
-                                ⏳ Waiting...
-                            </span>
+                            <div class="w-full text-center bg-yellow-900/60 border border-yellow-700 text-yellow-300 font-bold py-4 px-6 rounded-2xl text-base sm:text-lg">
+                                ⏳ Waiting for Approval...
+                            </div>
                         {% elif ts.status == 'approved' %}
-                            <span class="w-full text-center sm:w-auto bg-green-900/60 border border-green-700 text-green-300 font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5">
+                            <div class="w-full text-center bg-green-900/60 border border-green-700 text-green-300 font-bold py-4 px-6 rounded-2xl text-base sm:text-lg flex items-center justify-center gap-2">
                                 ✅ Approved!
-                            </span>
+                            </div>
                         {% endif %}
                     </div>
+                </div>
+            {% empty %}
+                <div class="bg-slate-800 rounded-3xl p-8 text-center border border-slate-700">
+                    <p class="text-slate-400 text-base">No tasks assigned for today yet!</p>
                 </div>
             {% endfor %}
         </div>
