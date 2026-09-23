@@ -43,57 +43,54 @@
         </div>
 
         <!-- WEEKLY HISTORY VIEW -->
-        <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 mb-8">
-            <h2 class="text-xl font-semibold mb-4 text-purple-400">📅 Weekly History Grid (Past 7 Days)</h2>
+        <div class="bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl border border-slate-700 mb-8">
+            <h2 class="text-lg sm:text-xl font-semibold mb-4 text-purple-400">📅 Weekly History Grid</h2>
             
-            {% if weekly_data %}
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-slate-700 text-xs text-slate-400">
-                                <th class="p-2">Child / Task</th>
-                                {% for d in dates_list %}
-                                    <th class="p-2 text-center">{{ d|date:"M j" }}<br><span class="text-[10px] text-slate-500">{{ d|date:"D" }}</span></th>
-                                {% endfor %}
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700/50 text-sm">
-                            {% for wd in weekly_data %}
-                                <tr class="bg-slate-700/20">
-                                    <td colspan="{{ dates_list|length|add:1 }}" class="p-2 font-bold text-blue-400 bg-slate-700/40">
-                                        👦 {{ wd.child.name }}
-                                    </td>
-                                </tr>
-                                {% for task in tasks %}
-                                    <tr>
-                                        <td class="p-2.5 font-medium text-slate-300 text-xs pl-4">
-                                            • {{ task.title }}
-                                        </td>
-                                        {% for d in dates_list %}
-                                            <td class="p-2 text-center">
-                                                {% with status=wd.day_statuses|get_item:d|get_item:task.id %}
-                                                    <form action="{% url 'update_weekly_status' wd.child.id task.id d|date:'Y-m-d' %}" method="POST" class="inline">
-                                                        {% csrf_token %}
-                                                        <button type="submit" class="inline-block w-6 h-6 rounded-full font-bold leading-6 text-xs transition hover:scale-110 
-                                                            {% if status == 'approved' %} bg-green-900 text-green-300 border border-green-700 
-                                                            {% elif status == 'waiting' %} bg-yellow-900 text-yellow-300 border border-yellow-700 
-                                                            {% else %} bg-slate-700 text-slate-500 {% endif %}" 
-                                                            title="Click to toggle status for {{ d|date:'M j' }}">
-                                                            {% if status == 'approved' %}✓{% elif status == 'waiting' %}⏳{% else %}·{% endif %}
-                                                        </button>
-                                                    </form>
-                                                {% endwith %}
-                                            </td>
-                                        {% endfor %}
-                                    </tr>
-                                {% endfor %}
+            <!-- Added overflow-x-auto and touch-friendly wrapper -->
+            <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table class="w-full text-left border-collapse min-w-[500px]">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-xs text-slate-400">
+                            <th class="p-2">Child / Task</th>
+                            {% for d in dates_list %}
+                                <th class="p-2 text-center">{{ d|date:"M j" }}<br><span class="text-[10px] text-slate-500">{{ d|date:"D" }}</span></th>
                             {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p class="text-slate-400 text-sm">No weekly history data available yet.</p>
-            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50 text-sm">
+                        {% for wd in weekly_data %}
+                            <tr class="bg-slate-700/20">
+                                <td colspan="{{ dates_list|length|add:1 }}" class="p-2 font-bold text-blue-400 bg-slate-700/40">
+                                    👦 {{ wd.child.name }}
+                                </td>
+                            </tr>
+                            {% for task in tasks %}
+                                <tr>
+                                    <td class="p-2.5 font-medium text-slate-300 text-xs pl-4 truncate max-w-[120px]">
+                                        • {{ task.title }}
+                                    </td>
+                                    {% for d in dates_list %}
+                                        <td class="p-2 text-center">
+                                            {% with status=wd.day_statuses|get_item:d|get_item:task.id %}
+                                                <form action="{% url 'update_weekly_status' wd.child.id task.id d|date:'Y-m-d' %}" method="POST" class="inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="inline-block w-8 h-8 sm:w-6 sm:h-6 rounded-full font-bold leading-8 sm:leading-6 text-xs transition active:scale-90
+                                                        {% if status == 'approved' %} bg-green-900 text-green-300 border border-green-700 
+                                                        {% elif status == 'waiting' %} bg-yellow-900 text-yellow-300 border border-yellow-700 
+                                                        {% else %} bg-slate-700 text-slate-500 {% endif %}" 
+                                                        title="Toggle status">
+                                                        {% if status == 'approved' %}✓{% elif status == 'waiting' %}⏳{% else %}·{% endif %}
+                                                    </button>
+                                                </form>
+                                            {% endwith %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- CHILDREN TASK PROGRESS OVERVIEW (TODAY) -->

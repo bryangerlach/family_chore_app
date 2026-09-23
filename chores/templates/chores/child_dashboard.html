@@ -67,33 +67,29 @@
         <!-- Task List Cards -->
         <div class="space-y-4">
             {% for ts in task_statuses %}
-                <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 flex items-center justify-between">
-                    <div>
-                        <h3 class="text-xl font-bold text-slate-100">{{ ts.task.title }}</h3>
-                        {% if ts.task.description %}<p class="text-sm text-slate-400 mt-0.5">{{ ts.task.description }}</p>{% endif %}
+                <div class="bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl border border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="w-full sm:w-auto">
+                        <h3 class="text-lg sm:text-xl font-bold text-slate-100">{{ ts.task.title }}</h3>
+                        {% if ts.task.description %}<p class="text-xs sm:text-sm text-slate-400 mt-0.5">{{ ts.task.description }}</p>{% endif %}
                     </div>
-                    <div>
+                    <div class="w-full sm:w-auto flex justify-end">
                         {% if ts.status == 'pending' %}
-                            <form action="{% url 'request_approval' ts.id %}" method="POST">
+                            <form action="{% url 'request_approval' ts.id %}" method="POST" class="w-full sm:w-auto">
                                 {% csrf_token %}
-                                <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-3 rounded-xl shadow transition active:scale-95 text-sm whitespace-nowrap">
+                                <button type="submit" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-6 py-3 rounded-xl shadow transition active:scale-95 text-sm whitespace-nowrap">
                                     Done! Ask Parent 🙋‍♂️
                                 </button>
                             </form>
                         {% elif ts.status == 'waiting' %}
-                            <span class="bg-yellow-900/60 border border-yellow-700 text-yellow-300 font-semibold px-4 py-2.5 rounded-xl text-sm inline-block">
-                                ⏳ Waiting for Approval...
+                            <span class="w-full text-center sm:w-auto bg-yellow-900/60 border border-yellow-700 text-yellow-300 font-semibold px-4 py-2.5 rounded-xl text-sm inline-block">
+                                ⏳ Waiting...
                             </span>
                         {% elif ts.status == 'approved' %}
-                            <span class="bg-green-900/60 border border-green-700 text-green-300 font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center gap-1.5">
+                            <span class="w-full text-center sm:w-auto bg-green-900/60 border border-green-700 text-green-300 font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5">
                                 ✅ Approved!
                             </span>
                         {% endif %}
                     </div>
-                </div>
-            {% empty %}
-                <div class="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700">
-                    <p class="text-slate-400">No tasks assigned for today yet!</p>
                 </div>
             {% endfor %}
         </div>
