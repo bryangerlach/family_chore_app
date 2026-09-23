@@ -14,6 +14,4 @@ EXPOSE 8000
 RUN chmod +x /app/docker-entrypoint.sh
 ENTRYPOINT [ "/app/docker-entrypoint.sh" ]
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD wget --spider 0.0.0.0:8000 || exit 1
-
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "config.wsgi:application"]
