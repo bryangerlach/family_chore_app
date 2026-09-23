@@ -2,29 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Family Chores - Who is using this?</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<link rel="manifest" href="/manifest.json">
-<body class="bg-slate-900 min-h-screen flex flex-col justify-center items-center text-slate-100 p-4">
-    <div class="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl p-6 sm:p-10 text-center">
-        <h1 class="text-2xl sm:text-3xl font-bold mb-2 text-slate-100">My Daily Helpers</h1>
-        <p class="text-slate-400 mb-6 text-sm">Select your profile to get started:</p>
+<body class="bg-slate-900 min-h-screen flex flex-col justify-center items-center text-slate-100 p-4 sm:p-6">
+    <!-- Expanded width on mobile (w-full max-w-lg) with generous padding -->
+    <div class="w-full max-w-lg bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl p-6 sm:p-10 text-center">
+        <h1 class="text-3xl sm:text-4xl font-bold mb-2 text-slate-100">My Daily Helpers</h1>
+        <p class="text-slate-400 mb-8 text-base sm:text-lg">Select your profile to get started:</p>
         
-        <!-- Responsive grid: 2 columns with good touch gaps -->
-        <div class="grid grid-cols-2 gap-4 sm:gap-6 justify-center mb-8">
+        <!-- Large square profile cards grid -->
+        <div class="grid grid-cols-2 gap-4 sm:gap-6 justify-center mb-10">
             {% for profile in profiles %}
                 {% if profile.user_type == 'child' %}
-                    <a href="{% url 'child_dashboard' profile.id %}" class="aspect-square bg-slate-700/60 hover:bg-blue-600/30 border-2 border-slate-600 hover:border-blue-500 rounded-2xl flex flex-col items-center justify-center p-4 shadow-lg transition active:scale-95 group">
-                        <span class="text-4xl sm:text-5xl mb-2 group-hover:scale-110 transition-transform">{{ profile.emoji }}</span>
-                        <span class="text-lg sm:text-xl font-bold text-slate-200 group-hover:text-white truncate max-w-full">{{ profile.name }}</span>
+                    <a href="{% url 'child_dashboard' profile.id %}" class="aspect-square bg-slate-700/60 hover:bg-blue-600/30 border-2 border-slate-600 hover:border-blue-500 rounded-2xl flex flex-col items-center justify-center p-6 shadow-xl transition active:scale-95 group">
+                        <!-- Larger emojis for mobile visibility -->
+                        <span class="text-6xl sm:text-7xl mb-3 group-hover:scale-110 transition-transform">{{ profile.emoji }}</span>
+                        <span class="text-xl sm:text-2xl font-bold text-slate-200 group-hover:text-white truncate max-w-full">{{ profile.name }}</span>
                     </a>
                 {% endif %}
             {% endfor %}
         </div>
 
         <div class="pt-6 border-t border-slate-700">
-            <a href="{% url 'parent_dashboard' %}" class="inline-block text-sm font-medium text-slate-400 hover:text-amber-400 transition">
+            <a href="{% url 'parent_dashboard' %}" class="inline-block text-base font-medium text-slate-400 hover:text-amber-400 transition py-2 px-4">
                 🔒 Parent / Admin Dashboard
             </a>
         </div>
