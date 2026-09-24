@@ -90,15 +90,25 @@ def parent_dashboard(request):
         
     today = timezone.localdate()
     
+    # Determine today's day index (Sun=0 ... Sat=6)
+    python_wd = today.weekday()
+    sunday_based_wd = str((python_wd + 1) % 7)
+    
     children = Profile.objects.filter(user_type='child')
     tasks = Task.objects.all()
     rewards = Reward.objects.all()
     
-    # Get pending reward requests
-    waiting_rewards = RedemptionLog.objects.filter(status='pending') # <-- Added
+    # Filter tasks active on today's day of the week for progress reporting
+    active_today_tasks = []
+    for task in tasks:
+        allowed = task.allowed_days.split(',') if task.allowed_days else ["0","1","2","3","4","5","6"]
+        if sunday_based_wd in allowed:
+            active_today_tasks.append(task)
+            
+    waiting_rewards = RedemptionLog.objects.filter(status='pending')
     
     for child in children:
-        for task in tasks:
+        for task in active_today_tasks:
             DailyTaskStatus.objects.get_or_create(
                 child=child,
                 task=task,
@@ -106,11 +116,12 @@ def parent_dashboard(request):
                 defaults={'status': 'pending'}
             )
 
-    waiting_tasks = DailyTaskStatus.objects.filter(status='waiting', date=today)
+    waiting_tasks = DailyTaskStatus.objects.filter(status='waiting', date=today, task__in=active_today_tasks)
     
     children_progress = []
     for child in children:
-        statuses = DailyTaskStatus.objects.filter(child=child, date=today)
+        # Only fetch statuses for tasks scheduled for today
+        statuses = DailyTaskStatus.objects.filter(child=child, date=today, task__in=active_today_tasks)
         total_tasks = statuses.count()
         approved_tasks = statuses.filter(status='approved').count()
         percent = int((approved_tasks / total_tasks * 100)) if total_tasks > 0 else 0
@@ -142,14 +153,37 @@ def parent_dashboard(request):
     
     return render(request, 'chores/parent_dashboard.html', {
         'waiting_tasks': waiting_tasks,
-        'waiting_rewards': waiting_rewards, # <-- Pass waiting rewards
+        'waiting_rewards': waiting_rewards,
         'children_progress': children_progress,
         'weekly_data': weekly_data,
         'dates_list': dates_list,
         'tasks': tasks,
         'rewards': rewards,
-        'profiles': profiles
+        'profiles': profiles,
     })
+
+def child_star_history(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    
+    # Approved task earnings
+    earned_tasks = DailyTaskStatus.objects.filter(child=profile, status='approved').order_by('-date')
+    
+    # Approved reward redemptions
+    spent_rewards = RedemptionLog.objects.filter(child=profile, status='approved').order_by('-redeemed_at')
+    
+    return render(request, 'chores/star_history.html', {
+        'profile': profile,
+        'earned_tasks': earned_tasks,
+        'spent_rewards': spent_rewards,
+        'stars_balance': profile.get_stars_balance(),
+    })
+
+def delete_task(request, task_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    task = get_object_or_404(Task, id=task_id)
+    task.delete()
+    return redirect('parent_dashboard')
 
 def delete_reward(request, reward_id):
     if not request.session.get('is_parent_authenticated'):

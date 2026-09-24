@@ -17,7 +17,9 @@
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-100">Hi, {{ profile.name }}! 👋</h1>
                     <div class="inline-flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/40 px-3 py-1 rounded-xl mt-1 text-amber-300 font-bold text-sm">
-                        ⭐ Star Balance: {{ stars_balance }}
+                        <a href="{% url 'child_star_history' profile.id %}">
+                            ⭐ Stars: {{ stars_balance }} (📜)
+                        </a>
                     </div>
                 </div>
             </div>
