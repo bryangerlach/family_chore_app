@@ -30,18 +30,33 @@ def child_dashboard(request, profile_id):
         
     task_statuses = DailyTaskStatus.objects.filter(child=profile, date=today, task__in=active_tasks)
     
-    # Filter out one-time rewards the child has already redeemed or requested
-    claimed_reward_ids = RedemptionLog.objects.filter(child=profile).values_list('reward_id', flat=True)
+    # Calculate current week's start (Sunday)
+    days_since_sunday = (today.weekday() + 1) % 7
+    start_sunday = today - timedelta(days=days_since_sunday)
+    
     available_rewards = []
     for reward in Reward.objects.all():
-        if reward.is_one_time and reward.id in claimed_reward_ids:
-            continue # Skip this reward since it's already claimed/requested
+        if reward.reward_type == 'one_time':
+            # Hide if claimed or requested ever
+            already_claimed = RedemptionLog.objects.filter(child=profile, reward=reward).exists()
+            if already_claimed:
+                continue
+        elif reward.reward_type == 'weekly':
+            # Hide if claimed or requested *this week* (since Sunday)
+            claimed_this_week = RedemptionLog.objects.filter(
+                child=profile, 
+                reward=reward, 
+                redeemed_at__date__gte=start_sunday
+            ).exists()
+            if claimed_this_week:
+                continue
+                
         available_rewards.append(reward)
     
     return render(request, 'chores/child_dashboard.html', {
         'profile': profile,
         'task_statuses': task_statuses,
-        'rewards': available_rewards, # <-- Pass filtered list
+        'rewards': available_rewards,
         'stars_balance': profile.get_stars_balance(),
     })
 
@@ -53,13 +68,15 @@ def add_reward(request):
         title = request.POST.get('title')
         star_cost = request.POST.get('star_cost', 1)
         description = request.POST.get('description', '')
-        is_one_time = request.POST.get('is_one_time') == 'on' # <-- Capture checkbox
+        reward_type = request.POST.get('reward_type', 'recurring')
+        is_one_time = (reward_type == 'one_time')
         
         if title:
             Reward.objects.create(
                 title=title, 
                 star_cost=star_cost, 
                 description=description,
+                reward_type=reward_type,
                 is_one_time=is_one_time
             )
     return redirect('parent_dashboard')
@@ -74,7 +91,9 @@ def edit_reward(request, reward_id):
         reward.title = request.POST.get('title', reward.title)
         reward.star_cost = request.POST.get('star_cost', reward.star_cost)
         reward.description = request.POST.get('description', reward.description)
-        reward.is_one_time = request.POST.get('is_one_time') == 'on'
+        reward_type = request.POST.get('reward_type', 'recurring')
+        reward.reward_type = reward_type
+        reward.is_one_time = (reward_type == 'one_time')
         reward.save()
         
         return redirect('parent_dashboard')

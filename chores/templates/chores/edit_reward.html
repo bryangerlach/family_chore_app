@@ -17,17 +17,19 @@
             {% csrf_token %}
             <div class="flex flex-col sm:flex-row gap-3">
                 <input type="text" name="title" value="{{ reward.title }}" placeholder="Reward Title" required class="bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white flex-grow focus:outline-none focus:border-amber-500 text-sm">
-                <input type="number" name="star_cost" value="{{ reward.star_cost }}" min="1" placeholder="Star Cost" required class="w-28 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
+                <input type="number" name="star_cost" value="{{ reward.star_cost }}" min="0" placeholder="Star Cost" required class="w-28 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
             </div>
             
             <input type="text" name="description" value="{{ reward.description|default:'' }}" placeholder="Description/Rules (optional)" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
 
-            <!-- One-time checkbox -->
-            <div class="flex items-center gap-2 pt-1">
-                <label class="bg-slate-700/80 border border-slate-600 px-3 py-2 rounded-xl text-xs flex items-center gap-2 cursor-pointer text-slate-200">
-                    <input type="checkbox" name="is_one_time" {% if reward.is_one_time %}checked{% endif %} class="rounded bg-slate-600 border-slate-500 text-amber-500 focus:ring-0"> 
-                    <span>One-time only reward (disappears from store once claimed)</span>
-                </label>
+            <!-- Reward Type Dropdown -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Reward Availability Type:</label>
+                <select name="reward_type" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
+                    <option value="recurring" {% if reward.reward_type == 'recurring' %}selected{% endif %}>🔄 Recurring (Can be claimed unlimited times)</option>
+                    <option value="weekly" {% if reward.reward_type == 'weekly' %}selected{% endif %}>📅 Once Per Week (Resets every Sunday)</option>
+                    <option value="one_time" {% if reward.reward_type == 'one_time' %}selected{% endif %}>🔒 One-Time Only (Never again once claimed)</option>
+                </select>
             </div>
 
             <div class="pt-4">
