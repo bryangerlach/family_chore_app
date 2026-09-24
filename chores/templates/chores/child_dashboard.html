@@ -38,6 +38,19 @@
                 <button onclick="toggleEmojiPicker()" class="text-xs text-slate-400 hover:text-slate-200">Close ✕</button>
             </div>
 
+            <!-- MANUAL ENTRY INPUT FORM -->
+            <div class="mb-4 bg-slate-700/50 p-3 rounded-2xl border border-slate-600">
+                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="flex items-center gap-2">
+                    {% csrf_token %}
+                    <input type="text" name="emoji" maxlength="4" placeholder="Type or paste emoji ⌨️" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm flex-grow focus:outline-none focus:border-amber-500 text-center">
+                    <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow transition">
+                        Set Icon 🚀
+                    </button>
+                </form>
+                <p class="text-[10px] text-slate-400 mt-1.5 text-center">Tap input to open your device keyboard (Win + . or Mac ⌃⌘Space)</p>
+            </div>
+
+            <!-- PRESET CATEGORIES -->
             <div class="space-y-4">
                 <!-- Faces & Heroes -->
                 <div>
