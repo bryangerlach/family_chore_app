@@ -1,7 +1,7 @@
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from .models import Profile, Task, DailyTaskStatus
+from .models import Profile, Task, DailyTaskStatus, Reward, RedemptionLog
 from datetime import datetime
 
 def profile_list(request):
@@ -22,10 +22,36 @@ def child_dashboard(request, profile_id):
         )
         
     task_statuses = DailyTaskStatus.objects.filter(child=profile, date=today)
+    rewards = Reward.objects.all() # <-- Pass available rewards to child view
+    
     return render(request, 'chores/child_dashboard.html', {
         'profile': profile,
-        'task_statuses': task_statuses
+        'task_statuses': task_statuses,
+        'rewards': rewards, # <-- Pass rewards here
+        'stars_balance': profile.get_stars_balance(), # <-- Pass star balance
     })
+
+def add_reward(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        star_cost = request.POST.get('star_cost', 1)
+        description = request.POST.get('description', '')
+        if title:
+            Reward.objects.create(title=title, star_cost=star_cost, description=description)
+    return redirect('parent_dashboard')
+
+def redeem_reward(request, profile_id, reward_id):
+    child = get_object_or_404(Profile, id=profile_id, user_type='child')
+    reward = get_object_or_404(Reward, id=reward_id)
+    
+    # Check if child has enough stars
+    if child.get_stars_balance() >= reward.star_cost:
+        RedemptionLog.objects.create(child=child, reward=reward)
+        
+    return redirect('child_dashboard', profile_id=child.id)
 
 def request_approval(request, task_status_id):
     task_status = get_object_or_404(DailyTaskStatus, id=task_status_id)
@@ -56,8 +82,11 @@ def parent_dashboard(request):
     
     children = Profile.objects.filter(user_type='child')
     tasks = Task.objects.all()
+    rewards = Reward.objects.all()
     
-    # Ensure today's task rows exist for active kids
+    # Get pending reward requests
+    waiting_rewards = RedemptionLog.objects.filter(status='pending') # <-- Added
+    
     for child in children:
         for task in tasks:
             DailyTaskStatus.objects.get_or_create(
@@ -69,7 +98,6 @@ def parent_dashboard(request):
 
     waiting_tasks = DailyTaskStatus.objects.filter(status='waiting', date=today)
     
-    # Today's progress breakdown
     children_progress = []
     for child in children:
         statuses = DailyTaskStatus.objects.filter(child=child, date=today)
@@ -85,11 +113,8 @@ def parent_dashboard(request):
             'percent': percent
         })
 
-    # show Sunday through Saturday
     days_since_sunday = (today.weekday() + 1) % 7
     start_sunday = today - timedelta(days=days_since_sunday)
-    
-    # Generate list of 7 days from Sunday to Saturday
     dates_list = [start_sunday + timedelta(days=i) for i in range(7)]
     
     weekly_data = []
@@ -107,12 +132,37 @@ def parent_dashboard(request):
     
     return render(request, 'chores/parent_dashboard.html', {
         'waiting_tasks': waiting_tasks,
+        'waiting_rewards': waiting_rewards, # <-- Pass waiting rewards
         'children_progress': children_progress,
         'weekly_data': weekly_data,
         'dates_list': dates_list,
         'tasks': tasks,
+        'rewards': rewards,
         'profiles': profiles
     })
+
+def delete_reward(request, reward_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    reward = get_object_or_404(Reward, id=reward_id)
+    reward.delete()
+    return redirect('parent_dashboard')
+
+def approve_reward(request, redemption_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    redemption = get_object_or_404(RedemptionLog, id=redemption_id)
+    redemption.status = 'approved'
+    redemption.save()
+    return redirect('parent_dashboard')
+
+def deny_reward(request, redemption_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    redemption = get_object_or_404(RedemptionLog, id=redemption_id)
+    redemption.status = 'denied'
+    redemption.save()
+    return redirect('parent_dashboard')
 
 def approve_task(request, task_status_id):
     if not request.session.get('is_parent_authenticated'):
@@ -122,6 +172,14 @@ def approve_task(request, task_status_id):
     if task_status.status == 'waiting':
         task_status.status = 'approved'
         task_status.save()
+    return redirect('parent_dashboard')
+
+def deny_task(request, task_status_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    task_status = get_object_or_404(DailyTaskStatus, id=task_status_id)
+    task_status.status = 'denied'
+    task_status.save()
     return redirect('parent_dashboard')
 
 def reset_task(request, task_status_id):
@@ -153,8 +211,10 @@ def add_task(request):
     if request.method == 'POST':
         title = request.POST.get('title')
         description = request.POST.get('description', '')
+        star_value = request.POST.get('star_value', 1) # <-- Added
+        image = request.FILES.get('image')
         if title:
-            Task.objects.create(title=title, description=description)
+            Task.objects.create(title=title, description=description, star_value=star_value, image=image)
     return redirect('parent_dashboard')
 
 def parent_logout(request):

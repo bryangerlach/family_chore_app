@@ -8,55 +8,97 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
     <div class="max-w-xl mx-auto">
-        <!-- Top Header & Profile Switcher -->
+        <!-- Top Header & Star Balance Badge -->
         <div class="flex justify-between items-center bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
             <div class="flex items-center gap-4">
-                <!-- Clickable Emoji that toggles the emoji picker drawer -->
-                <button onclick="toggleEmojiPicker()" class="text-5xl sm:text-6xl bg-slate-700/80 border border-slate-600 p-3 rounded-2xl shadow hover:scale-105 active:scale-95 transition" title="Change your icon!">
+                <button onclick="toggleEmojiPicker()" class="text-5xl sm:text-6xl bg-slate-700/80 border border-slate-600 p-3 rounded-2xl shadow hover:scale-105 active:scale-95 transition">
                     {{ profile.emoji }}
                 </button>
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-100">Hi, {{ profile.name }}! 👋</h1>
-                    <p class="text-slate-400 text-xs sm:text-sm">Complete your tasks to earn tablet time!</p>
+                    <!-- Star Balance Pill -->
+                    <div class="inline-flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/40 px-3 py-1 rounded-xl mt-1 text-amber-300 font-bold text-sm">
+                        ⭐ Star Balance: {{ stars_balance }}
+                    </div>
                 </div>
             </div>
-            <a href="{% url 'profile_list' %}" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-slate-300 shadow transition active:scale-95">Switch</a>
+            <a href="{% url 'profile_list' %}" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-slate-300 shadow transition">Switch</a>
         </div>
 
         <!-- Hidden Emoji Picker Drawer -->
-        <div id="emojiPicker" class="hidden bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
-            <p class="text-sm font-semibold text-slate-300 mb-3">Choose your profile icon:</p>
-            <div class="flex flex-wrap gap-3 justify-center">
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="👦" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">👦</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="👧" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">👧</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🦖" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🦖</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🚀" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🚀</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🦄" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🦄</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="⚽" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">⚽</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🤖" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🤖</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="⭐" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">⭐</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🐱" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🐱</button>
-                </form>
-                <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">
-                    {% csrf_token %}<button type="submit" name="emoji" value="🎮" class="text-3xl p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl transition active:scale-90">🎮</button>
-                </form>
+        <div id="emojiPicker" class="hidden bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl max-h-96 overflow-y-auto">
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-sm font-semibold text-slate-300">Choose your profile icon:</p>
+                <button onclick="toggleEmojiPicker()" class="text-xs text-slate-400 hover:text-slate-200">Close ✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Faces & Heroes -->
+                <div>
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Faces & Heroes</span>
+                    <div class="flex flex-wrap gap-2">
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="👦" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">👦</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="👧" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">👧</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="👶" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">👶</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🧒" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🧒</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦸‍♂️" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦸‍♂️</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦸‍♀️" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦸‍♀️</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🥷" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🥷</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🧙‍♂️" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🧙‍♂️</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="👑" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">👑</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🤠" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🤠</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🤖" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🤖</button></form>
+                    </div>
+                </div>
+
+                <!-- Animals & Creatures -->
+                <div>
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Animals & Creatures</span>
+                    <div class="flex flex-wrap gap-2">
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦖" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦖</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦕" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦕</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦁" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦁</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🐯" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🐯</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🐶" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🐶</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🐱" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🐱</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦊" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦊</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🐼" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🐼</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦄" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦄</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🐉" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🐉</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🦈" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🦈</button></form>
+                    </div>
+                </div>
+
+                <!-- Space & Vehicles -->
+                <div>
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Space & Vehicles</span>
+                    <div class="flex flex-wrap gap-2">
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🚀" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🚀</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🛸" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🛸</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🚁" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🚁</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🏎️" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🏎️</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🚒" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🚒</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🪐" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🪐</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="⭐" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">⭐</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="⚡" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">⚡</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🔥" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🔥</button></form>
+                    </div>
+                </div>
+
+                <!-- Gaming & Sports -->
+                <div>
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Gaming & Sports</span>
+                    <div class="flex flex-wrap gap-2">
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🎮" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🎮</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🕹️" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🕹️</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="⚽" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">⚽</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🏀" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🏀</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🎸" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🎸</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🎧" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🎧</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="🏆" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">🏆</button></form>
+                        <form action="{% url 'update_child_emoji' profile.id %}" method="POST" class="inline">{% csrf_token %}<button type="submit" name="emoji" value="💎" class="text-2xl p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl transition active:scale-90">💎</button></form>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -70,11 +112,11 @@
                     </div>
                     
                     <div class="pt-2 flex justify-end">
-                        {% if ts.status == 'pending' %}
+                        {% if ts.status == 'pending' or ts.status == 'denied' %}
                             <form action="{% url 'request_approval' ts.id %}" method="POST" class="w-full">
                                 {% csrf_token %}
                                 <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-extrabold text-base sm:text-lg py-4 px-6 rounded-2xl shadow-lg transition">
-                                    Done! Ask Parent 🙋‍♂️
+                                    {% if ts.status == 'denied' %}Resubmit to Parent 🔄{% else %}Done! Ask Parent 🙋‍♂️{% endif %}
                                 </button>
                             </form>
                         {% elif ts.status == 'waiting' %}
@@ -93,6 +135,48 @@
                     <p class="text-slate-400 text-base">No tasks assigned for today yet!</p>
                 </div>
             {% endfor %}
+        </div>
+
+        <!-- REWARDS STORE SECTION -->
+        <div class="mt-8 pt-6 border-t border-slate-800">
+            <h2 class="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
+                <span>🎁 Rewards Store</span>
+            </h2>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% for reward in rewards %}
+                    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 shadow-xl flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-bold text-slate-100">{{ reward.title }}</h3>
+                                <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap">
+                                    {{ reward.star_cost }} ⭐
+                                </span>
+                            </div>
+                            {% if reward.description %}
+                                <p class="text-slate-400 text-xs mb-4">{{ reward.description }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            {% if stars_balance >= reward.star_cost %}
+                                <form action="{% url 'redeem_reward' profile.id reward.id %}" method="POST">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold py-3 px-4 rounded-2xl text-sm shadow transition">
+                                        Request Reward! 🎁
+                                    </button>
+                                </form>
+                            {% else %}
+                                <button disabled class="w-full bg-slate-700/50 text-slate-500 font-bold py-3 px-4 rounded-2xl text-sm cursor-not-allowed">
+                                    Need {{ reward.star_cost }} ⭐ (You have {{ stars_balance }})
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-slate-400 text-sm col-span-2">No rewards available in the store right now.</p>
+                {% endfor %}
+            </div>
         </div>
     </div>
 

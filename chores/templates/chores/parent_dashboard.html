@@ -20,7 +20,7 @@
             </div>
         </div>
 
-        <!-- PENDING APPROVALS (Prominent Top Banner) -->
+        <!-- PENDING APPROVALS -->
         <div class="bg-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700 mb-6">
             <h2 class="text-lg sm:text-xl font-semibold mb-4 text-amber-400 flex items-center gap-2">
                 <span>🔔 Pending Approvals</span>
@@ -35,19 +35,66 @@
                         <div class="bg-slate-700/60 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-slate-600">
                             <div>
                                 <span class="text-xs font-bold uppercase tracking-wider text-blue-300 bg-blue-900/60 px-2.5 py-1 rounded-lg">{{ ts.child.name }}</span>
-                                <h4 class="text-base sm:text-lg font-bold mt-1.5">{{ ts.task.title }}</h4>
+                                <h4 class="text-base sm:text-lg font-bold mt-1.5">{{ ts.task.title }} <span class="text-xs font-normal text-amber-300">({{ ts.task.star_value }} ⭐)</span></h4>
                             </div>
-                            <form action="{% url 'approve_task' ts.id %}" method="POST" class="w-full sm:w-auto">
-                                {% csrf_token %}
-                                <button type="submit" class="w-full sm:w-auto bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold px-5 py-3 rounded-xl text-sm shadow transition">
-                                    Approve ✅
-                                </button>
-                            </form>
+                            <div class="flex gap-2 w-full sm:w-auto">
+                                <form action="{% url 'approve_task' ts.id %}" method="POST" class="flex-1 sm:flex-initial">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition">
+                                        Approve ✅
+                                    </button>
+                                </form>
+                                <form action="{% url 'deny_task' ts.id %}" method="POST" class="flex-1 sm:flex-initial">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition">
+                                        Deny ❌
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     {% endfor %}
                 </div>
             {% else %}
                 <p class="text-slate-400 text-sm">No pending tasks waiting for approval right now!</p>
+            {% endif %}
+        </div>
+
+        <!-- PENDING REWARD REQUESTS -->
+        <div class="bg-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700 mb-6">
+            <h2 class="text-lg sm:text-xl font-semibold mb-4 text-purple-400 flex items-center gap-2">
+                <span>🎁 Pending Reward Requests</span>
+                {% if waiting_rewards %}
+                    <span class="bg-purple-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-bold">{{ waiting_rewards|length }}</span>
+                {% endif %}
+            </h2>
+            
+            {% if waiting_rewards %}
+                <div class="space-y-3">
+                    {% for r in waiting_rewards %}
+                        <div class="bg-slate-700/60 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-slate-600">
+                            <div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-900/60 px-2.5 py-1 rounded-lg">{{ r.child.name }} requested</span>
+                                <h4 class="text-base sm:text-lg font-bold mt-1.5">{{ r.reward.title }} <span class="text-xs font-normal text-amber-300">({{ r.reward.star_cost }} ⭐)</span></h4>
+                            </div>
+                            <div class="flex gap-2 w-full sm:w-auto">
+                                <form action="{% url 'approve_reward' r.id %}" method="POST" class="flex-1 sm:flex-initial">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition">
+                                        Approve ✅
+                                    </button>
+                                </form>
+                                <form action="{% url 'deny_reward' r.id %}" method="POST" class="flex-1 sm:flex-initial">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition">
+                                        Deny ❌
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-slate-400 text-sm">No reward redemptions waiting for approval.</p>
             {% endif %}
         </div>
 
@@ -135,6 +182,7 @@
                                         <span class="px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap
                                             {% if ts.status == 'approved' %} bg-green-900/60 text-green-300 border border-green-700/50
                                             {% elif ts.status == 'waiting' %} bg-yellow-900/60 text-yellow-300 border border-yellow-700/50
+                                            {% elif ts.status == 'denied' %} bg-red-900/60 text-red-300 border border-red-700/50
                                             {% else %} bg-slate-700 text-slate-400 {% endif %}">
                                             {{ ts.get_status_display }}
                                         </span>
@@ -185,6 +233,50 @@
                         </div>
                     {% empty %}
                         <p class="text-slate-400 text-sm">No chores created yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+
+        <!-- MANAGE REWARDS (Collapsible Accordion) -->
+        <details class="bg-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700 mb-6 group">
+            <summary class="text-lg sm:text-xl font-semibold text-amber-400 cursor-pointer list-none flex justify-between items-center">
+                <span>🎁 Manage Rewards Store</span>
+                <span class="text-slate-400 group-open:rotate-180 transition-transform text-sm font-normal">▼ Tap to open</span>
+            </summary>
+            
+            <div class="mt-4 pt-4 border-t border-slate-700">
+                <form action="{% url 'add_reward' %}" method="POST" class="space-y-3 mb-6">
+                    {% csrf_token %}
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" name="title" placeholder="Reward Title (e.g., 10 mins Tablet)" required class="bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white flex-grow focus:outline-none focus:border-amber-500 text-sm">
+                        <input type="number" name="star_cost" value="1" min="1" placeholder="Star Cost" required class="w-28 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
+                        <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-5 py-3 rounded-xl text-sm shadow">Add Reward</button>
+                    </div>
+                    <input type="text" name="description" placeholder="Description/Rules (optional)" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
+                </form>
+
+                <div class="space-y-2">
+                    {% for reward in rewards %}
+                        <div class="bg-slate-700/50 border border-slate-600 px-4 py-3 rounded-xl flex justify-between items-center text-sm">
+                            <div>
+                                <strong class="text-slate-200">{{ reward.title }}</strong>
+                                {% if reward.description %}<span class="text-slate-400 ml-2 text-xs">({{ reward.description }})</span>{% endif %}
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-xl text-xs font-bold">
+                                    {{ reward.star_cost }} ⭐
+                                </span>
+                                <form action="{% url 'delete_reward' reward.id %}" method="POST" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" onclick="return confirm('Delete this reward?')" class="text-red-400 hover:text-red-300 font-bold p-1.5 bg-slate-800 rounded-lg border border-slate-600 transition" title="Delete reward">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="text-slate-400 text-sm">No rewards created yet.</p>
                     {% endfor %}
                 </div>
             </div>

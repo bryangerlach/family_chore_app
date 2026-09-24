@@ -1,5 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+
+class Task(models.Model):
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    image = models.ImageField(upload_to='task_images/', blank=True, null=True)
+    star_value = models.PositiveIntegerField(default=1, help_text="Stars earned when approved") # <-- Added
+
+    def __str__(self):
+        return f"{self.title} ({self.star_value} ⭐)"
 
 class Profile(models.Model):
     USER_TYPE_CHOICES = (
@@ -10,29 +20,57 @@ class Profile(models.Model):
     name = models.CharField(max_length=50)
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='child')
     pin = models.CharField(max_length=4, blank=True, null=True, help_text="4-digit PIN for kids")
-    emoji = models.CharField(max_length=10, default="👦", help_text="Profile icon emoji") # <-- Added this line
+    emoji = models.CharField(max_length=10, default="👦", help_text="Profile icon emoji")
+
+    def get_stars_balance(self):
+        # Earned stars from approved tasks
+        earned = DailyTaskStatus.objects.filter(child=self, status='approved').aggregate(
+            total=models.Sum('task__star_value')
+        )['total'] or 0
+        
+        # Spent stars on approved redemptions (or pending/approved depending on your preference)
+        spent = RedemptionLog.objects.filter(child=self, status='approved').aggregate(
+            total=models.Sum('reward__star_cost')
+        )['total'] or 0
+        
+        return earned - spent
 
     def __str__(self):
         return f"{self.name} ({self.user_type})"
 
-class Task(models.Model):
+class Reward(models.Model):
     title = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
+    star_cost = models.PositiveIntegerField(default=1, help_text="Stars required to redeem")
+    description = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return self.title
+        return f"{self.title} ({self.star_cost} ⭐)"
+
+class RedemptionLog(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+    )
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='redemptions')
+    reward = models.ForeignKey(Reward, on_delete=models.CASCADE)
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending') # <-- Updated field
+
+    def __str__(self):
+        return f"{self.child.name} requested {self.reward.title} ({self.status})"
 
 class DailyTaskStatus(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
-        ('waiting', 'Waiting Approval'),
-        ('approved', 'Approved / Completed'),
+        ('waiting', 'Waiting for Approval'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
     )
-    
-    child = models.ForeignKey(Profile, on_delete=models.CASCADE, limit_choices_to={'user_type': 'child'})
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE)
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
-    date = models.DateField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    date = models.DateField(default=timezone.localdate)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
-        return f"{self.child.name} - {self.task.title} [{self.status}] ({self.date})"
+        return f"{self.child.name} - {self.task.title} ({self.status})"
