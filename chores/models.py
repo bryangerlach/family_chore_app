@@ -6,7 +6,11 @@ class Task(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to='task_images/', blank=True, null=True)
-    star_value = models.PositiveIntegerField(default=1, help_text="Stars earned when approved") # <-- Added
+    star_value = models.PositiveIntegerField(default=1, help_text="Stars earned when approved")
+    
+    # Stores allowed weekdays as comma-separated integers (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
+    # Blank means available every day.
+    allowed_days = models.CharField(max_length=20, default="0,1,2,3,4,5,6", help_text="Comma-separated days: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat")
 
     def __str__(self):
         return f"{self.title} ({self.star_value} ⭐)"

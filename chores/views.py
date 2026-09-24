@@ -12,23 +12,33 @@ def child_dashboard(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
     today = timezone.localdate()
     
-    tasks = Task.objects.all()
-    for task in tasks:
-        DailyTaskStatus.objects.get_or_create(
-            child=profile,
-            task=task,
-            date=today,
-            defaults={'status': 'pending'}
-        )
+    # Python's weekday(): Monday=0, Tuesday=1 ... Sunday=6
+    # Let's map Python's weekday to our Sunday=0 standard: (weekday + 1) % 7
+    python_wd = today.weekday()
+    sunday_based_wd = str((python_wd + 1) % 7)
+    
+    # Only pull tasks whose allowed_days includes today's day index
+    all_tasks = Task.objects.all()
+    active_tasks = []
+    for task in all_tasks:
+        allowed = task.allowed_days.split(',')
+        if sunday_based_wd in allowed:
+            active_tasks.append(task)
+            DailyTaskStatus.objects.get_or_create(
+                child=profile,
+                task=task,
+                date=today,
+                defaults={'status': 'pending'}
+            )
         
-    task_statuses = DailyTaskStatus.objects.filter(child=profile, date=today)
-    rewards = Reward.objects.all() # <-- Pass available rewards to child view
+    task_statuses = DailyTaskStatus.objects.filter(child=profile, date=today, task__in=active_tasks)
+    rewards = Reward.objects.all()
     
     return render(request, 'chores/child_dashboard.html', {
         'profile': profile,
         'task_statuses': task_statuses,
-        'rewards': rewards, # <-- Pass rewards here
-        'stars_balance': profile.get_stars_balance(), # <-- Pass star balance
+        'rewards': rewards,
+        'stars_balance': profile.get_stars_balance(),
     })
 
 def add_reward(request):
@@ -211,11 +221,47 @@ def add_task(request):
     if request.method == 'POST':
         title = request.POST.get('title')
         description = request.POST.get('description', '')
-        star_value = request.POST.get('star_value', 1) # <-- Added
+        star_value = request.POST.get('star_value', 1)
         image = request.FILES.get('image')
+        
+        # Get selected checkboxes from form
+        days_list = request.POST.getlist('allowed_days') # Returns list of strings like ['1', '2', '3', '4', '5']
+        allowed_days = ",".join(days_list) if days_list else "0,1,2,3,4,5,6"
+        
         if title:
-            Task.objects.create(title=title, description=description, star_value=star_value, image=image)
+            Task.objects.create(
+                title=title, 
+                description=description, 
+                star_value=star_value, 
+                image=image,
+                allowed_days=allowed_days
+            )
     return redirect('parent_dashboard')
+
+def edit_task(request, task_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    task = get_object_or_404(Task, id=task_id)
+    
+    if request.method == 'POST':
+        task.title = request.POST.get('title', task.title)
+        task.description = request.POST.get('description', task.description)
+        task.star_value = request.POST.get('star_value', task.star_value)
+        
+        # Handle reference image update if a new one is provided
+        if 'image' in request.FILES:
+            task.image = request.FILES['image']
+            
+        # Handle days of week checkboxes
+        days_list = request.POST.getlist('allowed_days')
+        if days_list:
+            task.allowed_days = ",".join(days_list)
+            
+        task.save()
+        return redirect('parent_dashboard')
+        
+    return render(request, 'chores/edit_task.html', {'task': task})
 
 def parent_logout(request):
     request.session['is_parent_authenticated'] = False
