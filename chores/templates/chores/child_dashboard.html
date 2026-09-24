@@ -167,7 +167,14 @@
                     <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 shadow-xl flex flex-col justify-between">
                         <div>
                             <div class="flex justify-between items-start mb-2">
-                                <h3 class="text-lg font-bold text-slate-100">{{ reward.title }}</h3>
+                                <div>
+                                    <h3 class="text-lg font-bold text-slate-100">{{ reward.title }}</h3>
+                                    {% if reward.is_one_time %}
+                                        <span class="text-[10px] font-bold text-purple-300 bg-purple-900/50 border border-purple-700/50 px-2 py-0.5 rounded-md">🔒 One-Time Claim</span>
+                                    {% else %}
+                                        <span class="text-[10px] font-bold text-blue-300 bg-blue-900/50 border border-blue-700/50 px-2 py-0.5 rounded-md">🔄 Recurring</span>
+                                    {% endif %}
+                                </div>
                                 <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap">
                                     {{ reward.star_cost }} ⭐
                                 </span>

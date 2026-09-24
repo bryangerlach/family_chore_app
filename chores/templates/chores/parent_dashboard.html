@@ -389,7 +389,16 @@
                         <input type="number" name="star_cost" value="1" min="1" placeholder="Star Cost" required class="w-28 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
                         <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-5 py-3 rounded-xl text-sm shadow">Add Reward</button>
                     </div>
+                    
                     <input type="text" name="description" placeholder="Description/Rules (optional)" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
+
+                    <!-- One-time checkbox -->
+                    <div class="flex items-center gap-2 pt-1">
+                        <label class="bg-slate-700/80 border border-slate-600 px-3 py-2 rounded-xl text-xs flex items-center gap-2 cursor-pointer text-slate-200">
+                            <input type="checkbox" name="is_one_time" class="rounded bg-slate-600 border-slate-500 text-amber-500 focus:ring-0"> 
+                            <span>One-time only reward (disappears from store once claimed)</span>
+                        </label>
+                    </div>
                 </form>
 
                 <div class="space-y-2">
@@ -397,18 +406,31 @@
                         <div class="bg-slate-700/50 border border-slate-600 px-4 py-3 rounded-xl flex justify-between items-center text-sm">
                             <div>
                                 <strong class="text-slate-200">{{ reward.title }}</strong>
+                                {% if reward.is_one_time %}
+                                    <span class="bg-purple-900/60 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-lg text-[10px] font-bold ml-2">One-Time</span>
+                                {% else %}
+                                    <span class="bg-blue-900/60 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-lg text-[10px] font-bold ml-2">Recurring</span>
+                                {% endif %}
                                 {% if reward.description %}<span class="text-slate-400 ml-2 text-xs">({{ reward.description }})</span>{% endif %}
                             </div>
+                            
                             <div class="flex items-center gap-3">
                                 <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-xl text-xs font-bold">
                                     {{ reward.star_cost }} ⭐
                                 </span>
-                                <form action="{% url 'delete_reward' reward.id %}" method="POST" class="inline">
-                                    {% csrf_token %}
-                                    <button type="submit" onclick="return confirm('Delete this reward?')" class="text-red-400 hover:text-red-300 font-bold p-1.5 bg-slate-800 rounded-lg border border-slate-600 transition" title="Delete reward">
-                                        🗑️
-                                    </button>
-                                </form>
+                                
+                                <!-- Edit & Delete Buttons -->
+                                <div class="flex items-center gap-1.5">
+                                    <a href="{% url 'edit_reward' reward.id %}" class="bg-slate-800 hover:bg-slate-600 text-blue-400 hover:text-blue-300 font-bold px-3 py-2 rounded-lg border border-slate-600 text-xs transition inline-flex items-center gap-1 shadow">
+                                        ✏️ Edit
+                                    </a>
+                                    <form action="{% url 'delete_reward' reward.id %}" method="POST" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" onclick="return confirm('Delete this reward?')" class="text-red-400 hover:text-red-300 font-bold p-2 bg-slate-800 rounded-lg border border-slate-600 hover:bg-slate-600 transition shadow" title="Delete reward">
+                                            🗑️
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     {% empty %}

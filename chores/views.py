@@ -12,16 +12,13 @@ def child_dashboard(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
     today = timezone.localdate()
     
-    # Python's weekday(): Monday=0, Tuesday=1 ... Sunday=6
-    # Let's map Python's weekday to our Sunday=0 standard: (weekday + 1) % 7
     python_wd = today.weekday()
     sunday_based_wd = str((python_wd + 1) % 7)
     
-    # Only pull tasks whose allowed_days includes today's day index
     all_tasks = Task.objects.all()
     active_tasks = []
     for task in all_tasks:
-        allowed = task.allowed_days.split(',')
+        allowed = task.allowed_days.split(',') if task.allowed_days else ["0","1","2","3","4","5","6"]
         if sunday_based_wd in allowed:
             active_tasks.append(task)
             DailyTaskStatus.objects.get_or_create(
@@ -32,12 +29,19 @@ def child_dashboard(request, profile_id):
             )
         
     task_statuses = DailyTaskStatus.objects.filter(child=profile, date=today, task__in=active_tasks)
-    rewards = Reward.objects.all()
+    
+    # Filter out one-time rewards the child has already redeemed or requested
+    claimed_reward_ids = RedemptionLog.objects.filter(child=profile).values_list('reward_id', flat=True)
+    available_rewards = []
+    for reward in Reward.objects.all():
+        if reward.is_one_time and reward.id in claimed_reward_ids:
+            continue # Skip this reward since it's already claimed/requested
+        available_rewards.append(reward)
     
     return render(request, 'chores/child_dashboard.html', {
         'profile': profile,
         'task_statuses': task_statuses,
-        'rewards': rewards,
+        'rewards': available_rewards, # <-- Pass filtered list
         'stars_balance': profile.get_stars_balance(),
     })
 
@@ -49,9 +53,33 @@ def add_reward(request):
         title = request.POST.get('title')
         star_cost = request.POST.get('star_cost', 1)
         description = request.POST.get('description', '')
+        is_one_time = request.POST.get('is_one_time') == 'on' # <-- Capture checkbox
+        
         if title:
-            Reward.objects.create(title=title, star_cost=star_cost, description=description)
+            Reward.objects.create(
+                title=title, 
+                star_cost=star_cost, 
+                description=description,
+                is_one_time=is_one_time
+            )
     return redirect('parent_dashboard')
+
+def edit_reward(request, reward_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    reward = get_object_or_404(Reward, id=reward_id)
+    
+    if request.method == 'POST':
+        reward.title = request.POST.get('title', reward.title)
+        reward.star_cost = request.POST.get('star_cost', reward.star_cost)
+        reward.description = request.POST.get('description', reward.description)
+        reward.is_one_time = request.POST.get('is_one_time') == 'on'
+        reward.save()
+        
+        return redirect('parent_dashboard')
+        
+    return render(request, 'chores/edit_reward.html', {'reward': reward})
 
 def redeem_reward(request, profile_id, reward_id):
     child = get_object_or_404(Profile, id=profile_id, user_type='child')

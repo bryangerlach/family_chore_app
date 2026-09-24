@@ -22,6 +22,7 @@ urlpatterns = [
     path('parent/edit-task/<int:task_id>/', views.edit_task, name='edit_task'),
     path('parent/delete-task/<int:task_id>/', views.delete_task, name='delete_task'),
     path('parent/add-reward/', views.add_reward, name='add_reward'),
+    path('parent/edit-reward/<int:reward_id>/', views.edit_reward, name='edit_reward'),
     path('parent/delete-reward/<int:reward_id>/', views.delete_reward, name='delete_reward'),
     path('parent/approve-reward/<int:redemption_id>/', views.approve_reward, name='approve_reward'),
     path('parent/deny-reward/<int:redemption_id>/', views.deny_reward, name='deny_reward'),

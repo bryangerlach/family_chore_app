@@ -46,6 +46,7 @@ class Reward(models.Model):
     title = models.CharField(max_length=100)
     star_cost = models.PositiveIntegerField(default=1, help_text="Stars required to redeem")
     description = models.TextField(blank=True, null=True)
+    is_one_time = models.BooleanField(default=False, help_text="Check if this reward can only be claimed once per child") # <-- Added
 
     def __str__(self):
         return f"{self.title} ({self.star_cost} ⭐)"
