@@ -8,21 +8,25 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
     <div class="max-w-xl mx-auto">
-        <!-- Top Header & Star Balance Badge -->
+        <!-- Top Header & Profile Switcher -->
         <div class="flex justify-between items-center bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
             <div class="flex items-center gap-4">
-                <button onclick="toggleEmojiPicker()" class="text-5xl sm:text-6xl bg-slate-700/80 border border-slate-600 p-3 rounded-2xl shadow hover:scale-105 active:scale-95 transition">
+                <button onclick="toggleEmojiPicker()" class="text-5xl sm:text-6xl bg-slate-700/80 border border-slate-600 p-3 rounded-2xl shadow hover:scale-105 active:scale-95 transition" title="Change your icon!">
                     {{ profile.emoji }}
                 </button>
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-100">Hi, {{ profile.name }}! 👋</h1>
-                    <!-- Star Balance Pill -->
                     <div class="inline-flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/40 px-3 py-1 rounded-xl mt-1 text-amber-300 font-bold text-sm">
                         ⭐ Star Balance: {{ stars_balance }}
                     </div>
                 </div>
             </div>
-            <a href="{% url 'profile_list' %}" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-slate-300 shadow transition">Switch</a>
+            <div class="flex gap-2">
+                <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-3.5 py-3 rounded-2xl text-xs sm:text-sm font-bold text-slate-300 shadow transition flex items-center gap-1" title="Refresh Tasks">
+                    🔄
+                </a>
+                <a href="{% url 'profile_list' %}" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-slate-300 shadow transition">Switch</a>
+            </div>
         </div>
 
         <!-- Hidden Emoji Picker Drawer -->
