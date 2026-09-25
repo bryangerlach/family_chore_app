@@ -32,7 +32,7 @@ def child_dashboard(request, profile_id):
     python_wd = today.weekday()
     sunday_based_wd = str((python_wd + 1) % 7)
     
-    all_tasks = Task.objects.all()
+    all_tasks = Task.objects.exclude(title__startswith="Coin Purchase:").exclude(title__startswith="Coin Store Purchase:")
     active_tasks = []
     for task in all_tasks:
         allowed = task.allowed_days.split(',') if task.allowed_days else ["0","1","2","3","4","5","6"]
@@ -258,7 +258,7 @@ def parent_dashboard(request):
     sunday_based_wd = str((python_wd + 1) % 7)
     
     children = Profile.objects.filter(user_type='child')
-    tasks = Task.objects.all()
+    tasks = Task.objects.exclude(title__startswith="Coin Purchase:").exclude(title__startswith="Coin Store Purchase:")
     rewards = Reward.objects.all()
     
     active_today_tasks = []
