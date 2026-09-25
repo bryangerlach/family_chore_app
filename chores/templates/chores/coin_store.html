@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Exchange Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
+    <div class="max-w-xl mx-auto">
+        <div class="flex justify-between items-center bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
+            <div class="flex items-center gap-3">
+                <span class="text-4xl">{{ profile.emoji }}</span>
+                <div>
+                    <h1 class="text-xl font-bold">🪙 Coin Exchange Store</h1>
+                    <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-0.5 rounded-xl text-xs font-bold mt-1 inline-block">
+                        Coin Balance: {{ coin_balance }} 🪙
+                    </span>
+                </div>
+            </div>
+            <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-300">Dashboard</a>
+        </div>
+
+        {% if feedback == 'success' %}
+            <div class="bg-green-900/60 border border-green-700 text-green-300 p-4 rounded-2xl mb-6 text-center font-bold">
+                🎁 Purchase successful! Enjoy your reward!
+            </div>
+        {% elif feedback == 'not_enough' %}
+            <div class="bg-red-900/60 border border-red-700 text-red-300 p-4 rounded-2xl mb-6 text-center font-bold">
+                ❌ Not enough coins! Answer more quizzes to earn coins.
+            </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for item in items %}
+                <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-base font-bold text-slate-100">{{ item.title }}</h3>
+                            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap">
+                                {{ item.coin_cost }} 🪙
+                            </span>
+                        </div>
+                        {% if item.description %}
+                            <p class="text-slate-400 text-xs mb-4">{{ item.description }}</p>
+                        {% endif %}
+                        {% if item.star_value_granted > 0 %}
+                            <span class="text-xs bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-lg font-bold inline-block mb-4">Grants +{{ item.star_value_granted }} ⭐</span>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        {% if coin_balance >= item.coin_cost %}
+                            <form action="{% url 'buy_coin_item' profile.id item.id %}" method="POST">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-slate-950 font-bold py-3 px-4 rounded-2xl text-sm transition">
+                                    Buy Item 🛒
+                                </button>
+                            </form>
+                        {% else %}
+                            <button disabled class="w-full bg-slate-700/50 text-slate-500 font-bold py-3 px-4 rounded-2xl text-sm cursor-not-allowed">
+                                Need {{ item.coin_cost }} 🪙
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-slate-400 text-sm col-span-2">No items in the Coin Store right now.</p>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

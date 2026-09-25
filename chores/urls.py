@@ -4,7 +4,11 @@ from . import views
 urlpatterns = [
     path('', views.profile_list, name='profile_list'),
     path('child/<int:profile_id>/', views.child_dashboard, name='child_dashboard'),
-    path('child/<int:profile_id>/history/', views.child_star_history, name='child_star_history'), # <-- Added this line
+    path('child/<int:profile_id>/history/', views.child_star_history, name='child_star_history'),
+    path('child/<int:profile_id>/quiz/', views.quiz_hub, name='quiz_hub'),
+    path('child/<int:profile_id>/quiz/<int:question_id>/submit/', views.submit_quiz, name='submit_quiz'),
+    path('child/<int:profile_id>/coins/', views.coin_store, name='coin_store'),
+    path('child/<int:profile_id>/coins/buy/<int:item_id>/', views.buy_coin_item, name='buy_coin_item'),
     path('child/<int:profile_id>/update-emoji/', views.update_child_emoji, name='update_child_emoji'),
     path('child/<int:profile_id>/redeem/<int:reward_id>/', views.redeem_reward, name='redeem_reward'),
     path('task/<int:task_status_id>/request/', views.request_approval, name='request_approval'),
@@ -26,4 +30,12 @@ urlpatterns = [
     path('parent/delete-reward/<int:reward_id>/', views.delete_reward, name='delete_reward'),
     path('parent/approve-reward/<int:redemption_id>/', views.approve_reward, name='approve_reward'),
     path('parent/deny-reward/<int:redemption_id>/', views.deny_reward, name='deny_reward'),
+    
+    # Quiz & Coin Store Parent Management Routes
+    path('parent/add-quiz/', views.add_quiz_question, name='add_quiz_question'),
+    path('parent/delete-quiz/<int:q_id>/', views.delete_quiz_question, name='delete_quiz_question'),
+    path('parent/add-coin-item/', views.add_coin_store_item, name='add_coin_store_item'),
+    path('parent/delete-coin-item/<int:item_id>/', views.delete_coin_store_item, name='delete_coin_store_item'),
+    path('parent/import-text-quizzes/', views.import_quizzes_from_text, name='import_quizzes_from_text'),
+    path('parent/import-sheet-quizzes/', views.import_quizzes_from_sheet, name='import_quizzes_from_sheet'),
 ]

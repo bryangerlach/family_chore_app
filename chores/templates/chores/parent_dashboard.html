@@ -128,6 +128,154 @@
             </div>
         </details>
 
+        <!-- MANAGE QUIZZES ACCORDION -->
+        <details id="manageQuizzesSection" class="bg-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700 mb-6 group">
+            <summary class="text-lg sm:text-xl font-semibold text-blue-400 cursor-pointer list-none flex justify-between items-center">
+                <span>🧠 Manage Learning Quizzes (Per Child)</span>
+                <span class="text-slate-400 group-open:rotate-180 transition-transform text-sm font-normal">▼ </span>
+            </summary>
+            
+            <div class="mt-4 pt-4 border-t border-slate-700 space-y-6">
+                <!-- Add Single Question Form -->
+                <form action="{% url 'add_quiz_question' %}" method="POST" class="space-y-3 bg-slate-700/30 p-4 rounded-2xl border border-slate-700">
+                    {% csrf_token %}
+                    <h3 class="text-sm font-bold text-slate-200">Add Single Question</h3>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <select name="child_id" required class="bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                            <option value="">Select Child...</option>
+                            {% for p in profiles %}{% if p.user_type == 'child' %}
+                                <option value="{{ p.id }}">{{ p.name }} {{ p.emoji }}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+                        <select name="question_type" class="bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                            <option value="math">Math Problem</option>
+                            <option value="reading">Reading Comprehension</option>
+                        </select>
+                        <input type="number" name="coin_reward" value="5" min="1" placeholder="Coin Reward" required class="bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <textarea name="passage" placeholder="Reading Passage / Story (optional - leave blank for math)" rows="2" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"></textarea>
+                    
+                    <input type="text" name="question_text" placeholder="Question Text" required class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="text" name="option_a" placeholder="Option A" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm">
+                        <input type="text" name="option_b" placeholder="Option B" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm">
+                        <input type="text" name="option_c" placeholder="Option C (optional)" class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm">
+                        <input type="text" name="option_d" placeholder="Option D (optional)" class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm">
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-1">
+                        <label class="text-xs font-bold text-slate-300">Correct Answer:</label>
+                        <select name="correct_answer" class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs">
+                            <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                        </select>
+                        <button type="submit" class="ml-auto bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow">Add Question</button>
+                    </div>
+                </form>
+
+                <!-- BULK IMPORT SECTIONS (Wipes and replaces for selected child) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Text Batch Import -->
+                    <form action="{% url 'import_quizzes_from_text' %}" method="POST" class="bg-slate-700/40 p-4 rounded-2xl border border-slate-700 space-y-3">
+                        {% csrf_token %}
+                        <h4 class="text-xs font-bold text-blue-300 uppercase">Replace with Text Batch</h4>
+                        <select name="child_id" required class="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs">
+                            <option value="">Select Child...</option>
+                            {% for p in profiles %}{% if p.user_type == 'child' %}
+                                <option value="{{ p.id }}">{{ p.name }} {{ p.emoji }}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+                        <textarea name="raw_text" placeholder="math, What is 2+2?, 2, 3, 4, 5, C, 5" rows="3" class="w-full bg-slate-700 border border-slate-600 rounded-xl p-2 text-white text-xs font-mono focus:outline-none focus:border-blue-500" required></textarea>
+                        <button type="submit" onclick="return confirm('This will replace all existing quiz questions for this child. Continue?')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs">Replace & Import Text 📋</button>
+                    </form>
+
+                    <!-- Google Sheets Live CSV Sync -->
+                    <form action="{% url 'import_quizzes_from_sheet' %}" method="POST" class="bg-slate-700/40 p-4 rounded-2xl border border-slate-700 space-y-3">
+                        {% csrf_token %}
+                        <h4 class="text-xs font-bold text-green-300 uppercase">Replace with Google Sheet</h4>
+                        <select name="child_id" required class="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs">
+                            <option value="">Select Child...</option>
+                            {% for p in profiles %}{% if p.user_type == 'child' %}
+                                <option value="{{ p.id }}">{{ p.name }} {{ p.emoji }}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+                        <input type="url" name="sheet_url" placeholder="https://docs.google.com/.../pub?output=csv" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-green-500" required>
+                        <button type="submit" onclick="return confirm('This will replace all existing quiz questions for this child with data from the sheet. Continue?')" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-xl text-xs">Sync & Replace from Sheet 📊</button>
+                    </form>
+                </div>
+
+                <!-- Existing Questions List -->
+                <div class="space-y-2 pt-4 border-t border-slate-700">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-2">Existing Questions Bank</h4>
+                    {% for q in quiz_questions %}
+                        <div class="bg-slate-700/50 border border-slate-600 px-4 py-3 rounded-xl flex justify-between items-center text-sm">
+                            <div>
+                                <span class="bg-purple-900/60 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-lg text-[10px] font-bold mr-1">{{ q.child.name|default:"General" }}</span>
+                                <span class="bg-blue-900/60 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-lg text-[10px] font-bold mr-2">{{ q.get_question_type_display }}</span>
+                                <strong class="text-slate-200">{{ q.question_text }}</strong>
+                                <span class="text-yellow-400 text-xs ml-2">(+{{ q.coin_reward }} 🪙)</span>
+                            </div>
+                            <form action="{% url 'delete_quiz_question' q.id %}" method="POST" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" onclick="return confirm('Delete this question?')" class="text-red-400 hover:text-red-300 font-bold p-2 bg-slate-800 rounded-lg border border-slate-600 transition" title="Delete">🗑️</button>
+                            </form>
+                        </div>
+                    {% empty %}
+                        <p class="text-slate-400 text-sm">No quiz questions created yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+
+        <!-- MANAGE COIN STORE ACCORDION -->
+        <details id="manageCoinStoreSection" class="bg-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700 mb-6 group">
+            <summary class="text-lg sm:text-xl font-semibold text-yellow-400 cursor-pointer list-none flex justify-between items-center">
+                <span>🪙 Manage Coin Store Items</span>
+                <span class="text-slate-400 group-open:rotate-180 transition-transform text-sm font-normal">▼ </span>
+            </summary>
+            
+            <div class="mt-4 pt-4 border-t border-slate-700">
+                <form action="{% url 'add_coin_store_item' %}" method="POST" class="space-y-3 mb-6 bg-slate-700/30 p-4 rounded-2xl border border-slate-700">
+                    {% csrf_token %}
+                    <h3 class="text-sm font-bold text-slate-200">Add Exchange Item (e.g., 20 Coins = 1 Star Point)</h3>
+                    
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" name="title" placeholder="Item Title (e.g., 1 Star Point)" required class="bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white flex-grow text-sm focus:outline-none focus:border-yellow-500">
+                        <input type="number" name="coin_cost" value="20" min="1" placeholder="Coin Cost" required class="w-28 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-yellow-500">
+                        <input type="number" name="star_value_granted" value="1" min="0" placeholder="Grants Stars" required class="w-28 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-yellow-500">
+                    </div>
+                    
+                    <input type="text" name="description" placeholder="Description/Rules (optional)" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-yellow-500">
+
+                    <div class="flex justify-end pt-1">
+                        <button type="submit" class="bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs shadow">Add Coin Item</button>
+                    </div>
+                </form>
+
+                <div class="space-y-2">
+                    {% for item in coin_items %}
+                        <div class="bg-slate-700/50 border border-slate-600 px-4 py-3 rounded-xl flex justify-between items-center text-sm">
+                            <div>
+                                <strong class="text-slate-200">{{ item.title }}</strong>
+                                {% if item.star_value_granted > 0 %}
+                                    <span class="bg-amber-900/60 text-amber-300 border border-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold ml-2">+{{ item.star_value_granted }} ⭐</span>
+                                {% endif %}
+                                <span class="text-yellow-400 text-xs ml-2 font-bold">({{ item.coin_cost }} 🪙)</span>
+                            </div>
+                            <form action="{% url 'delete_coin_store_item' item.id %}" method="POST" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" onclick="return confirm('Delete this coin item?')" class="text-red-400 hover:text-red-300 font-bold p-2 bg-slate-800 rounded-lg border border-slate-600 transition" title="Delete">🗑️</button>
+                            </form>
+                        </div>
+                    {% empty %}
+                        <p class="text-slate-400 text-sm">No coin store items created yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+
         <!-- WEEKLY HISTORY VIEW (Collapsible, Default Collapsed) -->
         <details id="weeklyHistorySection" class="bg-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700 mb-6 group">
             <summary class="text-lg sm:text-xl font-semibold text-purple-400 cursor-pointer list-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -229,6 +377,10 @@
                             <div class="w-16 bg-slate-600 h-2 rounded-full overflow-hidden inline-block">
                                 <div class="bg-emerald-500 h-2 rounded-full" style="width: {{ cp.percent }}%;"></div>
                             </div>
+                            <!-- Unanswered Quiz Badge -->
+                            <span class="bg-blue-500/20 border border-blue-500/40 text-blue-300 px-2.5 py-1 rounded-xl text-xs font-bold">
+                                🧠 Unanswered Quizzes: {{ cp.unanswered_quizzes }}
+                            </span>
                         </div>
                     {% empty %}
                         <span class="text-slate-400">No children</span>
@@ -482,6 +634,8 @@
         // List of all collapsible section IDs on the dashboard
         const sectionIds = [
             'starBalancesSection',
+            'manageQuizzesSection', 
+            'manageCoinStoreSection', 
             'weeklyHistorySection', 
             'todaysProgressSection', 
             'manageChoresSection', 

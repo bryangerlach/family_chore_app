@@ -1,8 +1,13 @@
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from .models import Profile, Task, DailyTaskStatus, Reward, RedemptionLog
+from .models import Profile, Task, DailyTaskStatus, Reward, RedemptionLog, CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, QuizWrongAttempt
 from datetime import datetime
+import csv
+import io
+import urllib.request
+from django.db import IntegrityError
+import random
 
 def profile_list(request):
     profiles = Profile.objects.all()
@@ -137,7 +142,6 @@ def parent_dashboard(request):
         
     today = timezone.localdate()
     
-    # Determine today's day index (Sun=0 ... Sat=6)
     python_wd = today.weekday()
     sunday_based_wd = str((python_wd + 1) % 7)
     
@@ -145,40 +149,52 @@ def parent_dashboard(request):
     tasks = Task.objects.all()
     rewards = Reward.objects.all()
     
-    # Filter tasks active on today's day of the week for progress reporting
+    quiz_questions = QuizQuestion.objects.all()
+    coin_items = CoinStoreItem.objects.all()
+    
     active_today_tasks = []
     for task in tasks:
         allowed = task.allowed_days.split(',') if task.allowed_days else ["0","1","2","3","4","5","6"]
         if sunday_based_wd in allowed:
             active_today_tasks.append(task)
             
+    # Safely get or create daily task statuses only if child profiles exist
+    if children.exists():
+        for child in children:
+            for task in active_today_tasks:
+                DailyTaskStatus.objects.get_or_create(
+                    child=child,
+                    task=task,
+                    date=today,
+                    defaults={'status': 'pending'}
+                )
+            
+    waiting_tasks = DailyTaskStatus.objects.filter(status='waiting', date=today, task__in=active_today_tasks) if children.exists() else DailyTaskStatus.objects.none()
     waiting_rewards = RedemptionLog.objects.filter(status='pending')
     
-    for child in children:
-        for task in active_today_tasks:
-            DailyTaskStatus.objects.get_or_create(
-                child=child,
-                task=task,
-                date=today,
-                defaults={'status': 'pending'}
-            )
-
-    waiting_tasks = DailyTaskStatus.objects.filter(status='waiting', date=today, task__in=active_today_tasks)
+    cutoff_time = timezone.now() - timedelta(hours=18)
     
     children_progress = []
     for child in children:
-        # Only fetch statuses for tasks scheduled for today
         statuses = DailyTaskStatus.objects.filter(child=child, date=today, task__in=active_today_tasks)
         total_tasks = statuses.count()
         approved_tasks = statuses.filter(status='approved').count()
         percent = int((approved_tasks / total_tasks * 100)) if total_tasks > 0 else 0
+        
+        # Calculate unanswered quizzes for this specific child (factoring in 18-hour rolling reset)
+        solved_ids = QuizAttempt.objects.filter(
+            child=child, 
+            solved_at__gte=cutoff_time
+        ).values_list('question_id', flat=True)
+        unanswered_quizzes = QuizQuestion.objects.filter(child=child).exclude(id__in=solved_ids).count()
         
         children_progress.append({
             'child': child,
             'statuses': statuses,
             'total_tasks': total_tasks,
             'approved_tasks': approved_tasks,
-            'percent': percent
+            'percent': percent,
+            'unanswered_quizzes': unanswered_quizzes  # Added here!
         })
 
     days_since_sunday = (today.weekday() + 1) % 7
@@ -207,6 +223,8 @@ def parent_dashboard(request):
         'tasks': tasks,
         'rewards': rewards,
         'profiles': profiles,
+        'quiz_questions': quiz_questions,
+        'coin_items': coin_items,
     })
 
 def child_star_history(request, profile_id):
@@ -380,3 +398,242 @@ def update_child_emoji(request, profile_id):
             profile.emoji = new_emoji
             profile.save()
     return redirect('child_dashboard', profile_id=profile.id)
+
+def quiz_hub(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    cutoff_time = timezone.now() - timedelta(hours=18)
+    
+    solved_question_ids = QuizAttempt.objects.filter(
+        child=profile, 
+        solved_at__gte=cutoff_time
+    ).values_list('question_id', flat=True)
+    
+    available_questions = QuizQuestion.objects.filter(child=profile).exclude(id__in=solved_question_ids)
+    
+    questions_data = []
+    for q in available_questions:
+        wrong_attempts = QuizWrongAttempt.objects.filter(
+            child=profile, 
+            question=q, 
+            timestamp__gte=cutoff_time
+        )
+        wrong_count = wrong_attempts.count()
+        q.wrong_options = list(wrong_attempts.values_list('option_chosen', flat=True))
+        q.current_reward = max(1, q.coin_reward - wrong_count)
+        questions_data.append(q)
+    
+    # Shuffle the questions into a random order every time the page loads
+    random.shuffle(questions_data)
+    
+    feedback = request.GET.get('feedback')
+    
+    return render(request, 'chores/quiz_hub.html', {
+        'profile': profile,
+        'questions': questions_data,
+        'coin_balance': profile.get_coin_balance(),
+        'feedback': feedback,
+    })
+
+def submit_quiz(request, profile_id, question_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    question = get_object_or_404(QuizQuestion, id=question_id)
+    cutoff_time = timezone.now() - timedelta(hours=18)
+    
+    if request.method == 'POST':
+        selected_answer = request.POST.get('answer')
+        
+        already_solved = QuizAttempt.objects.filter(
+            child=profile, 
+            question=question, 
+            solved_at__gte=cutoff_time
+        ).exists()
+        
+        if already_solved:
+            return redirect(f"/child/{profile.id}/quiz/?feedback=already_solved")
+            
+        if selected_answer == question.correct_answer:
+            wrong_count = QuizWrongAttempt.objects.filter(
+                child=profile, 
+                question=question, 
+                timestamp__gte=cutoff_time
+            ).count()
+            earned_coins = max(1, question.coin_reward - wrong_count)
+            
+            try:
+                QuizAttempt.objects.create(child=profile, question=question)
+                CoinLedger.objects.create(
+                    child=profile,
+                    amount=earned_coins,
+                    reason=f"Correct Quiz Answer ({earned_coins}🪙): {question.question_text[:15]}..."
+                )
+            except IntegrityError:
+                return redirect(f"/child/{profile.id}/quiz/?feedback=already_solved")
+                
+            return redirect(f"/child/{profile.id}/quiz/?feedback=correct")
+        else:
+            # Save which option was chosen wrong
+            QuizWrongAttempt.objects.create(
+                child=profile, 
+                question=question, 
+                option_chosen=selected_answer
+            )
+            return redirect(f"/child/{profile.id}/quiz/?feedback=incorrect")
+                
+    return redirect('quiz_hub', profile_id=profile.id)
+
+def coin_store(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    items = CoinStoreItem.objects.all()
+    feedback = request.GET.get('feedback')
+    
+    return render(request, 'chores/coin_store.html', {
+        'profile': profile,
+        'items': items,
+        'coin_balance': profile.get_coin_balance(),
+        'feedback': feedback,
+    })
+
+def buy_coin_item(request, profile_id, item_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    item = get_object_or_404(CoinStoreItem, id=item_id)
+    
+    if profile.get_coin_balance() >= item.coin_cost:
+        # Deduct coins
+        CoinLedger.objects.create(
+            child=profile,
+            amount=-item.coin_cost,
+            reason=f"Purchased: {item.title}"
+        )
+        
+        # If item grants stars, record an approved task earning so balance increases
+        if item.star_value_granted > 0:
+            dummy_task, _ = Task.objects.get_or_create(
+                title=f"Coin Store Purchase: {item.title}",
+                defaults={'star_value': item.star_value_granted}
+            )
+            DailyTaskStatus.objects.create(
+                child=profile,
+                task=dummy_task,
+                date=timezone.localdate(),
+                status='approved'
+            )
+            
+        return redirect(f"/child/{profile.id}/coins/?feedback=success")
+    else:
+        return redirect(f"/child/{profile.id}/coins/?feedback=not_enough")
+
+def add_quiz_question(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    if request.method == 'POST':
+        child_id = request.POST.get('child_id')
+        child = get_object_or_404(Profile, id=child_id, user_type='child')
+        
+        QuizQuestion.objects.create(
+            child=child,
+            question_type=request.POST.get('question_type'),
+            passage=request.POST.get('passage'),
+            question_text=request.POST.get('question_text'),
+            option_a=request.POST.get('option_a'),
+            option_b=request.POST.get('option_b'),
+            option_c=request.POST.get('option_c'),
+            option_d=request.POST.get('option_d'),
+            correct_answer=request.POST.get('correct_answer'),
+            coin_reward=request.POST.get('coin_reward', 5)
+        )
+    return redirect('parent_dashboard')
+
+def delete_quiz_question(request, q_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    get_object_or_404(QuizQuestion, id=q_id).delete()
+    return redirect('parent_dashboard')
+
+def add_coin_store_item(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    if request.method == 'POST':
+        CoinStoreItem.objects.create(
+            title=request.POST.get('title'),
+            coin_cost=request.POST.get('coin_cost', 10),
+            star_value_granted=request.POST.get('star_value_granted', 0),
+            description=request.POST.get('description', '')
+        )
+    return redirect('parent_dashboard')
+
+def delete_coin_store_item(request, item_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    get_object_or_404(CoinStoreItem, id=item_id).delete()
+    return redirect('parent_dashboard')
+
+def import_quizzes_from_text(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    if request.method == 'POST':
+        child_id = request.POST.get('child_id')
+        child = get_object_or_404(Profile, id=child_id, user_type='child')
+        raw_text = request.POST.get('raw_text', '')
+        
+        # WIPE old questions for this child before importing new ones
+        QuizQuestion.objects.filter(child=child).delete()
+        
+        lines = raw_text.strip().split('\n')
+        for line in lines:
+            if not line.strip() or line.startswith('#'):
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 8:
+                QuizQuestion.objects.create(
+                    child=child,
+                    question_type=parts[0].lower(),
+                    question_text=parts[1],
+                    option_a=parts[2],
+                    option_b=parts[3],
+                    option_c=parts[4] if parts[4] else None,
+                    option_d=parts[5] if parts[5] else None,
+                    correct_answer=parts[6].upper(),
+                    coin_reward=int(parts[7]) if parts[7].isdigit() else 5,
+                    passage=parts[8] if len(parts) > 8 else None
+                )
+    return redirect('parent_dashboard')
+
+def import_quizzes_from_sheet(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    if request.method == 'POST':
+        child_id = request.POST.get('child_id')
+        child = get_object_or_404(Profile, id=child_id, user_type='child')
+        sheet_url = request.POST.get('sheet_url', '')
+        
+        try:
+            response = urllib.request.urlopen(sheet_url)
+            csv_data = response.read().decode('utf-8')
+            io_string = io.StringIO(csv_data)
+            reader = csv.reader(io_string)
+            
+            header = next(reader, None)
+            
+            # WIPE old questions for this child before importing new ones
+            QuizQuestion.objects.filter(child=child).delete()
+            
+            for row in reader:
+                if len(row) >= 8:
+                    QuizQuestion.objects.create(
+                        child=child,
+                        question_type=row[0].strip().lower(),
+                        question_text=row[1].strip(),
+                        option_a=row[2].strip(),
+                        option_b=row[3].strip(),
+                        option_c=row[4].strip() if row[4].strip() else None,
+                        option_d=row[5].strip() if row[5].strip() else None,
+                        correct_answer=row[6].strip().upper(),
+                        coin_reward=int(row[7].strip()) if row[7].strip().isdigit() else 5,
+                        passage=row[8].strip() if len(row) > 8 and row[8].strip() else None
+                    )
+        except Exception as e:
+            print(f"Error importing sheet: {e}")
+            
+    return redirect('parent_dashboard')

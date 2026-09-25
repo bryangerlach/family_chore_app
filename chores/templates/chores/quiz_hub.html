@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Quiz Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
+    <div class="max-w-xl mx-auto">
+        <div class="flex justify-between items-center bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
+            <div class="flex items-center gap-3">
+                <span class="text-4xl">{{ profile.emoji }}</span>
+                <div>
+                    <h1 class="text-xl font-bold">🧠 Learning Quiz Hub</h1>
+                    <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-0.5 rounded-xl text-xs font-bold mt-1 inline-block">
+                        🪙 Coin Balance: {{ coin_balance }}
+                    </span>
+                </div>
+            </div>
+            <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-300">Dashboard</a>
+        </div>
+
+        {% if feedback == 'correct' %}
+            <div class="bg-green-900/60 border border-green-700 text-green-300 p-4 rounded-2xl mb-6 text-center font-bold">
+                🎉 Correct! Coins earned!
+            </div>
+        {% elif feedback == 'incorrect' %}
+            <div class="bg-red-900/60 border border-red-700 text-red-300 p-4 rounded-2xl mb-6 text-center font-bold">
+                ❌ Not quite right! Try another question.
+            </div>
+        {% elif feedback == 'already_solved' %}
+            <div class="bg-yellow-900/60 border border-yellow-700 text-yellow-300 p-4 rounded-2xl mb-6 text-center font-bold">
+                ⏳ You already answered this question today!
+            </div>
+        {% endif %}
+
+        <div class="space-y-6">
+            {% for q in questions %}
+                <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-xs font-bold uppercase tracking-wider bg-blue-900/60 text-blue-300 px-2.5 py-1 rounded-lg">
+                            {{ q.get_question_type_display }}
+                        </span>
+                        <span class="text-xs font-bold text-yellow-300">+{{ q.current_reward }} 🪙</span>
+                    </div>
+
+                    {% if q.passage %}
+                        <div class="bg-slate-700/50 p-4 rounded-2xl border border-slate-600 text-sm mb-4 italic text-slate-300">
+                            "{{ q.passage }}"
+                        </div>
+                    {% endif %}
+
+                    <h3 class="text-base sm:text-lg font-bold mb-4">{{ q.question_text }}</h3>
+
+                    <form action="{% url 'submit_quiz' profile.id q.id %}" method="POST" class="space-y-2.5">
+                        {% csrf_token %}
+                        <!-- Option A -->
+                        {% if 'A' in q.wrong_options %}
+                            <button type="button" disabled class="w-full text-left bg-red-950/60 border border-red-700/60 p-3.5 rounded-xl text-sm text-red-400 opacity-60 cursor-not-allowed">
+                                <strong>A)</strong> {{ q.option_a }} ❌ (Wrong)
+                            </button>
+                        {% else %}
+                            <button type="submit" name="answer" value="A" class="w-full text-left bg-slate-700/70 hover:bg-slate-700 border border-slate-600 p-3.5 rounded-xl text-sm transition">
+                                <strong>A)</strong> {{ q.option_a }}
+                            </button>
+                        {% endif %}
+
+                        <!-- Option B -->
+                        {% if 'B' in q.wrong_options %}
+                            <button type="button" disabled class="w-full text-left bg-red-950/60 border border-red-700/60 p-3.5 rounded-xl text-sm text-red-400 opacity-60 cursor-not-allowed">
+                                <strong>B)</strong> {{ q.option_b }} ❌ (Wrong)
+                            </button>
+                        {% else %}
+                            <button type="submit" name="answer" value="B" class="w-full text-left bg-slate-700/70 hover:bg-slate-700 border border-slate-600 p-3.5 rounded-xl text-sm transition">
+                                <strong>B)</strong> {{ q.option_b }}
+                            </button>
+                        {% endif %}
+
+                        <!-- Option C -->
+                        {% if q.option_c %}
+                            {% if 'C' in q.wrong_options %}
+                                <button type="button" disabled class="w-full text-left bg-red-950/60 border border-red-700/60 p-3.5 rounded-xl text-sm text-red-400 opacity-60 cursor-not-allowed">
+                                    <strong>C)</strong> {{ q.option_c }} ❌ (Wrong)
+                                </button>
+                            {% else %}
+                                <button type="submit" name="answer" value="C" class="w-full text-left bg-slate-700/70 hover:bg-slate-700 border border-slate-600 p-3.5 rounded-xl text-sm transition">
+                                    <strong>C)</strong> {{ q.option_c }}
+                                </button>
+                            {% endif %}
+                        {% endif %}
+
+                        <!-- Option D -->
+                        {% if q.option_d %}
+                            {% if 'D' in q.wrong_options %}
+                                <button type="button" disabled class="w-full text-left bg-red-950/60 border border-red-700/60 p-3.5 rounded-xl text-sm text-red-400 opacity-60 cursor-not-allowed">
+                                    <strong>D)</strong> {{ q.option_d }} ❌ (Wrong)
+                                </button>
+                            {% else %}
+                                <button type="submit" name="answer" value="D" class="w-full text-left bg-slate-700/70 hover:bg-slate-700 border border-slate-600 p-3.5 rounded-xl text-sm transition">
+                                    <strong>D)</strong> {{ q.option_d }}
+                                </button>
+                            {% endif %}
+                        {% endif %}
+                    </form>
+                </div>
+            {% empty %}
+                <div class="bg-slate-800 rounded-3xl p-8 text-center border border-slate-700">
+                    <p class="text-slate-400">All quizzes completed for today! Check back tomorrow for more. 🌟</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

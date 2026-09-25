@@ -38,6 +38,9 @@ class Profile(models.Model):
         )['total'] or 0
         
         return earned - spent
+    
+    def get_coin_balance(self):
+        return sum(t.amount for t in self.coin_transactions.all())
 
     def __str__(self):
         return f"{self.name} ({self.user_type})"
@@ -86,3 +89,65 @@ class DailyTaskStatus(models.Model):
 
     def __str__(self):
         return f"{self.child.name} - {self.task.title} ({self.status})"
+
+class CoinLedger(models.Model):
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='coin_transactions')
+    amount = models.IntegerField(help_text="Positive for earned, negative for spent")
+    reason = models.CharField(max_length=200)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.child.name}: {self.amount:+d} coins ({self.reason})"
+
+
+class QuizQuestion(models.Model):
+    QUESTION_TYPES = [
+        ('math', 'Math Problem'),
+        ('reading', 'Reading Comprehension'),
+    ]
+    
+    # Link each question to a specific child profile
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='quiz_questions', null=True, blank=True)
+    
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPES, default='math')
+    passage = models.TextField(blank=True, null=True, help_text="For reading: the story or paragraph")
+    question_text = models.TextField(help_text="The question to answer")
+    
+    option_a = models.CharField(max_length=100)
+    option_b = models.CharField(max_length=100)
+    option_c = models.CharField(max_length=100, blank=True, null=True)
+    option_d = models.CharField(max_length=100, blank=True, null=True)
+    
+    CORRECT_CHOICES = [('A', 'A'), ('B', 'B'), ('C', 'C'), ('D', 'D')]
+    correct_answer = models.CharField(max_length=1, choices=CORRECT_CHOICES)
+    coin_reward = models.PositiveIntegerField(default=5, help_text="Coins earned for correct answer")
+
+    def __str__(self):
+        child_name = self.child.name if self.child else "General"
+        return f"[{child_name}] [{self.get_question_type_display()}] {self.question_text[:25]}..."
+
+
+class QuizAttempt(models.Model):
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE)
+    solved_at = models.DateTimeField(auto_now_add=True) # Changed from solved_date to solved_at
+
+    class Meta:
+        # We handle uniqueness via view logic to avoid rigid DB date constraints
+        pass
+
+
+class CoinStoreItem(models.Model):
+    title = models.CharField(max_length=100, help_text="e.g., 1 Star Point")
+    coin_cost = models.PositiveIntegerField(default=10)
+    star_value_granted = models.PositiveIntegerField(default=0, help_text="Stars granted when bought")
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.coin_cost} 🪙)"
+
+class QuizWrongAttempt(models.Model):
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE)
+    option_chosen = models.CharField(max_length=1, blank=True, null=True) # Tracks 'A', 'B', 'C', or 'D'
+    timestamp = models.DateTimeField(auto_now_add=True)
