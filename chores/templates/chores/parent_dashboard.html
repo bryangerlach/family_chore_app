@@ -94,21 +94,20 @@
                             <span class="text-3xl">{{ cs.child.emoji }}</span>
                             <div>
                                 <h2 class="text-lg font-black text-white">{{ cs.child.name }}</h2>
-                                <a href="{% url 'child_dashboard' cs.child.id %}" target="_blank" class="text-xs text-blue-400 hover:underline">View Portal ↗</a>
+                                <a href="{% url 'child_dashboard' cs.child.id %}" class="text-xs text-blue-400 hover:underline">View Portal ↗</a>
                             </div>
                         </div>
                         
                         <!-- Combined Clickable Balance & Ledger Badges -->
                         <div class="flex gap-2">
-                            <!-- Coin Count links directly to Coin Ledger -->
-                            <a href="{% url 'child_coin_history' cs.child.id %}" class="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow" title="View Coin Ledger">
-                                🪙 {{ cs.coin_balance }} <span class="text-[10px] opacity-75"> ↗</span>
-                            </a>
-                            
                             <!-- Star Count links directly to Star Ledger -->
                             <a href="{% url 'child_star_history' cs.child.id %}" class="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow" title="View Star Ledger">
                                 ⭐️ {{ cs.star_balance }} <span class="text-[10px] opacity-75"> ↗</span>
                             </a>
+                            <!-- Coin Count links directly to Coin Ledger -->
+                            <a href="{% url 'child_coin_history' cs.child.id %}" class="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow" title="View Coin Ledger">
+                                🪙 {{ cs.coin_balance }} <span class="text-[10px] opacity-75"> ↗</span>
+                            </a>  
                         </div>
                     </div>
 
