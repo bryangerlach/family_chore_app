@@ -433,9 +433,17 @@ def edit_task(request, task_id):
         task.description = request.POST.get('description', task.description)
         task.star_value = request.POST.get('star_value', task.star_value)
         
-        if 'image' in request.FILES:
+        # Handle image deletion if requested
+        if request.POST.get('clear_image') == 'on':
+            if task.image:
+                task.image.delete(save=False)
+            task.image = None
+            
+        # Handle reference image update if a new one is provided
+        elif 'image' in request.FILES:
             task.image = request.FILES['image']
             
+        # Handle days of week checkboxes
         days_list = request.POST.getlist('allowed_days')
         if days_list:
             task.allowed_days = ",".join(days_list)
