@@ -12,6 +12,7 @@ from chores.models import (
     CoinStoreItem,
     CoinLedger
 )
+from django.utils import timezone
 
 class QuizAttemptTestCase(TestCase):
     def setUp(self):
@@ -152,17 +153,48 @@ class RewardApprovalWorkflowTestCase(TestCase):
 
     def test_reward_denial_view_workflow(self):
         """Test parent denial view endpoint on a pending redemption."""
-        redemption = RedemptionLog.objects.create(
-            child=self.child,
-            reward=self.reward,
-            status="pending"
-        )
+        child = Profile.objects.create(name="Leo", user_type="child")
+        reward = Reward.objects.create(title="Toy", star_cost=5)
+        redemption = RedemptionLog.objects.create(child=child, reward=reward, status='pending')
         
-        response = self.client.get(reverse('deny_reward', args=[redemption.id]))
+        client = Client()
+        session = client.session
+        session['is_parent_authenticated'] = True
+        session.save()
+        
+        response = client.post(reverse('approve_reward', args=[redemption.id]), {'action': 'reject'})
         self.assertEqual(response.status_code, 302)
         
-        redemption.refresh_from_db()
-        self.assertEqual(redemption.status, "denied")
+        # Since reject deletes the log to refund stars, verify it no longer exists
+        self.assertFalse(RedemptionLog.objects.filter(id=redemption.id).exists())
+
+    def test_reject_reward_refunds_stars(self):
+        """Verify that rejecting a reward request via approve_reward view refunds the stars."""
+        # Setup child and give them 10 stars via an approved task
+        child = Profile.objects.create(name="Leo", user_type="child")
+        task = Task.objects.create(title="Big Chore", star_value=10)
+        DailyTaskStatus.objects.create(child=child, task=task, date=timezone.localdate(), status='approved')
+        self.assertEqual(child.get_stars_balance(), 10)
+        
+        reward = Reward.objects.create(title="Toy", star_cost=5)
+        
+        # Create a pending redemption (which holds/deducts 5 stars)
+        redemption = RedemptionLog.objects.create(child=child, reward=reward, status='pending')
+        self.assertEqual(child.get_stars_balance(), 5) # 10 earned - 5 pending
+        
+        # Authenticate parent session
+        client = Client()
+        session = client.session
+        session['is_parent_authenticated'] = True
+        session.save()
+        
+        # Post reject action to the approve_reward view
+        response = client.post(reverse('approve_reward', args=[redemption.id]), {'action': 'reject'})
+        self.assertEqual(response.status_code, 302)
+        
+        # Verify redemption is deleted and stars are fully refunded back to 10
+        self.assertFalse(RedemptionLog.objects.filter(id=redemption.id).exists())
+        self.assertEqual(child.get_stars_balance(), 10)
 
 
 class CoinStoreAndLedgerTestCase(TestCase):

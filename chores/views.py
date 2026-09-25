@@ -571,8 +571,12 @@ def approve_reward(request, redemption_id):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
     redemption = get_object_or_404(RedemptionLog, id=redemption_id)
-    redemption.status = 'approved'
-    redemption.save()
+    action = request.POST.get('action')
+    if action == 'reject':
+        redemption.delete()
+    else:
+        redemption.status = 'approved'
+        redemption.save()
     return redirect('parent_dashboard')
 
 
@@ -580,8 +584,7 @@ def deny_reward(request, redemption_id):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
     redemption = get_object_or_404(RedemptionLog, id=redemption_id)
-    redemption.status = 'denied'
-    redemption.save()
+    redemption.delete()
     return redirect('parent_dashboard')
 
 

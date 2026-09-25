@@ -24,8 +24,11 @@ class Profile(models.Model):
             total=models.Sum('task__star_value')
         )['total'] or 0
         
-        # Spent stars on approved redemptions
-        spent = RedemptionLog.objects.filter(child=self, status='approved').aggregate(
+        # Only hold/subtract stars if the redemption is still pending or has been approved
+        spent = RedemptionLog.objects.filter(
+            child=self, 
+            status__in=['pending', 'approved']
+        ).aggregate(
             total=models.Sum('reward__star_cost')
         )['total'] or 0
         
@@ -97,15 +100,15 @@ class Reward(models.Model):
 
 
 class RedemptionLog(models.Model):
-    STATUS_CHOICES = (
+    STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
         ('denied', 'Denied'),
-    )
-    child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='redemptions')
+    ]
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE)
     reward = models.ForeignKey(Reward, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     redeemed_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
         return f"{self.child.name} requested {self.reward.title} ({self.status})"
