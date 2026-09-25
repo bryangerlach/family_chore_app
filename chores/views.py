@@ -579,11 +579,18 @@ def import_quizzes_from_text(request):
         # WIPE old questions for this child before importing new ones
         QuizQuestion.objects.filter(child=child).delete()
         
-        lines = raw_text.strip().split('\n')
-        for line in lines:
-            if not line.strip() or line.startswith('#'):
+        # Use io.StringIO and csv.reader to safely parse commas and quotes
+        io_string = io.StringIO(raw_text.strip())
+        reader = csv.reader(io_string)
+        
+        for row in reader:
+            # Skip empty lines or comment lines starting with '#'
+            if not row or (len(row) == 1 and row[0].strip().startswith('#')):
                 continue
-            parts = [p.strip() for p in line.split(',')]
+                
+            # Clean up whitespace for each column value
+            parts = [p.strip() for p in row]
+            
             if len(parts) >= 8:
                 QuizQuestion.objects.create(
                     child=child,
@@ -595,7 +602,7 @@ def import_quizzes_from_text(request):
                     option_d=parts[5] if parts[5] else None,
                     correct_answer=parts[6].upper(),
                     coin_reward=int(parts[7]) if parts[7].isdigit() else 5,
-                    passage=parts[8] if len(parts) > 8 else None
+                    passage=parts[8] if len(parts) > 8 and parts[8] else None
                 )
     return redirect('parent_dashboard')
 
