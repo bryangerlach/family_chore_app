@@ -17,6 +17,7 @@ urlpatterns = [
     path('parent/login/', views.parent_login, name='parent_login'),
     path('parent/', views.parent_dashboard, name='parent_dashboard'),
     path('parent/logout/', views.parent_logout, name='parent_logout'),
+    path('child/<int:profile_id>/history/', views.child_star_history, name='child_star_history'),
     path('task/<int:task_status_id>/approve/', views.approve_task, name='approve_task'),
     path('task/<int:task_status_id>/deny/', views.deny_task, name='deny_task'),
     path('task/<int:task_status_id>/reset/', views.reset_task, name='reset_task'),
@@ -30,12 +31,13 @@ urlpatterns = [
     path('parent/delete-reward/<int:reward_id>/', views.delete_reward, name='delete_reward'),
     path('parent/approve-reward/<int:redemption_id>/', views.approve_reward, name='approve_reward'),
     path('parent/deny-reward/<int:redemption_id>/', views.deny_reward, name='deny_reward'),
-    
-    # Quiz & Coin Store Parent Management Routes
     path('parent/add-quiz/', views.add_quiz_question, name='add_quiz_question'),
     path('parent/delete-quiz/<int:q_id>/', views.delete_quiz_question, name='delete_quiz_question'),
     path('parent/add-coin-item/', views.add_coin_store_item, name='add_coin_store_item'),
     path('parent/delete-coin-item/<int:item_id>/', views.delete_coin_store_item, name='delete_coin_store_item'),
     path('parent/import-text-quizzes/', views.import_quizzes_from_text, name='import_quizzes_from_text'),
     path('parent/import-sheet-quizzes/', views.import_quizzes_from_sheet, name='import_quizzes_from_sheet'),
+    path('profile/delete/<int:profile_id>/', views.delete_profile, name='delete_profile'),
+    path('parent/management/', views.management_hub, name='management_hub'),
+    path('parent/child/<int:profile_id>/coin-history/', views.child_coin_history, name='child_coin_history'),
 ]

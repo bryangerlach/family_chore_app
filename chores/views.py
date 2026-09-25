@@ -1,7 +1,7 @@
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from .models import Profile, Task, DailyTaskStatus, Reward, RedemptionLog, CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, QuizWrongAttempt
+from .models import Profile, Task, DailyTaskStatus, Reward, RedemptionLog, CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, QuizWrongAttempt, RedemptionLog
 from datetime import datetime
 import csv
 import io
@@ -63,6 +63,7 @@ def child_dashboard(request, profile_id):
         'task_statuses': task_statuses,
         'rewards': available_rewards,
         'stars_balance': profile.get_stars_balance(),
+        'coins_balance': profile.get_coin_balance(),
     })
 
 def add_reward(request):
@@ -141,7 +142,6 @@ def parent_dashboard(request):
         return redirect('parent_login')
         
     today = timezone.localdate()
-    
     python_wd = today.weekday()
     sunday_based_wd = str((python_wd + 1) % 7)
     
@@ -149,16 +149,12 @@ def parent_dashboard(request):
     tasks = Task.objects.all()
     rewards = Reward.objects.all()
     
-    quiz_questions = QuizQuestion.objects.all()
-    coin_items = CoinStoreItem.objects.all()
-    
     active_today_tasks = []
     for task in tasks:
         allowed = task.allowed_days.split(',') if task.allowed_days else ["0","1","2","3","4","5","6"]
         if sunday_based_wd in allowed:
             active_today_tasks.append(task)
             
-    # Safely get or create daily task statuses only if child profiles exist
     if children.exists():
         for child in children:
             for task in active_today_tasks:
@@ -174,27 +170,25 @@ def parent_dashboard(request):
     
     cutoff_time = timezone.now() - timedelta(hours=18)
     
-    children_progress = []
+    children_summary = []
     for child in children:
         statuses = DailyTaskStatus.objects.filter(child=child, date=today, task__in=active_today_tasks)
         total_tasks = statuses.count()
         approved_tasks = statuses.filter(status='approved').count()
         percent = int((approved_tasks / total_tasks * 100)) if total_tasks > 0 else 0
         
-        # Calculate unanswered quizzes for this specific child (factoring in 18-hour rolling reset)
-        solved_ids = QuizAttempt.objects.filter(
-            child=child, 
-            solved_at__gte=cutoff_time
-        ).values_list('question_id', flat=True)
+        solved_ids = QuizAttempt.objects.filter(child=child, solved_at__gte=cutoff_time).values_list('question_id', flat=True)
         unanswered_quizzes = QuizQuestion.objects.filter(child=child).exclude(id__in=solved_ids).count()
         
-        children_progress.append({
+        children_summary.append({
             'child': child,
-            'statuses': statuses,
-            'total_tasks': total_tasks,
+            'star_balance': child.get_stars_balance(),
+            'coin_balance': child.get_coin_balance(),
             'approved_tasks': approved_tasks,
+            'total_tasks': total_tasks,
             'percent': percent,
-            'unanswered_quizzes': unanswered_quizzes  # Added here!
+            'unanswered_quizzes': unanswered_quizzes,
+            'statuses': statuses
         })
 
     days_since_sunday = (today.weekday() + 1) % 7
@@ -212,19 +206,29 @@ def parent_dashboard(request):
             'day_statuses': day_statuses
         })
 
-    profiles = Profile.objects.all()
-    
     return render(request, 'chores/parent_dashboard.html', {
         'waiting_tasks': waiting_tasks,
         'waiting_rewards': waiting_rewards,
-        'children_progress': children_progress,
+        'children_summary': children_summary,
         'weekly_data': weekly_data,
         'dates_list': dates_list,
         'tasks': tasks,
         'rewards': rewards,
-        'profiles': profiles,
-        'quiz_questions': quiz_questions,
-        'coin_items': coin_items,
+        'profiles': Profile.objects.all(),
+        'quiz_questions': QuizQuestion.objects.all(),
+        'coin_items': CoinStoreItem.objects.all(),
+    })
+
+def management_hub(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    return render(request, 'chores/management_hub.html', {
+        'tasks': Task.objects.all(),
+        'rewards': Reward.objects.all(),
+        'coin_items': CoinStoreItem.objects.all(),
+        'quiz_questions': QuizQuestion.objects.all(),
+        'profiles': Profile.objects.all(),
     })
 
 def child_star_history(request, profile_id):
@@ -255,6 +259,14 @@ def delete_reward(request, reward_id):
         return redirect('parent_login')
     reward = get_object_or_404(Reward, id=reward_id)
     reward.delete()
+    return redirect('parent_dashboard')
+
+def delete_profile(request, profile_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+    if request.method == 'POST':
+        profile = get_object_or_404(Profile, id=profile_id)
+        profile.delete()
     return redirect('parent_dashboard')
 
 def approve_reward(request, redemption_id):
@@ -491,6 +503,18 @@ def coin_store(request, profile_id):
         'items': items,
         'coin_balance': profile.get_coin_balance(),
         'feedback': feedback,
+    })
+
+def child_coin_history(request, profile_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    child = get_object_or_404(Profile, id=profile_id, user_type='child')
+    ledgers = CoinLedger.objects.filter(child=child).order_by('-timestamp')
+    
+    return render(request, 'chores/coin_history.html', {
+        'child': child,
+        'ledgers': ledgers,
     })
 
 def buy_coin_item(request, profile_id, item_id):

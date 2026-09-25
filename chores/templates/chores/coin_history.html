@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ child.name }}'s Coin Ledger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
+    <div class="max-w-4xl mx-auto space-y-6">
+        
+        <!-- HEADER -->
+        <div class="flex justify-between items-center bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl">
+            <div class="flex items-center gap-4">
+                <span class="text-4xl">{{ child.emoji }}</span>
+                <div>
+                    <h1 class="text-2xl font-black text-white">{{ child.name }}'s Coin Ledger</h1>
+                    <p class="text-xs text-slate-400 mt-1">Audit log of all quiz coin earnings and store redemptions.</p>
+                </div>
+            </div>
+            <a href="{% url 'parent_dashboard' %}" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-200 transition">← Back to Dashboard</a>
+        </div>
+
+        <!-- COIN TRANSACTIONS TABLE -->
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl space-y-4">
+            <h2 class="text-sm font-bold text-yellow-400 uppercase tracking-wider">Transaction History</h2>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="p-3">Timestamp</th>
+                            <th class="p-3">Reason / Description</th>
+                            <th class="p-3 text-right">Coins</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        {% for entry in ledgers %}
+                            <tr class="hover:bg-slate-700/20 transition">
+                                <td class="p-3 text-slate-400">{{ entry.timestamp|date:"M j, Y, g:i a" }}</td>
+                                <td class="p-3 text-slate-200">{{ entry.reason }}</td>
+                                <td class="p-3 text-right font-bold {% if entry.amount > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                                    {% if entry.amount > 0 %}+{{ entry.amount }}{% else %}{{ entry.amount }}{% endif %} 🪙
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="p-6 text-center text-slate-500">No coin transactions recorded for {{ child.name }} yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
