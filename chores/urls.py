@@ -1,4 +1,6 @@
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from . import views
 
 urlpatterns = [
@@ -56,3 +58,6 @@ urlpatterns = [
     path('parent/add-coin-item/', views.add_coin_store_item, name='add_coin_store_item'),
     path('parent/delete-coin-item/<int:item_id>/', views.delete_coin_store_item, name='delete_coin_store_item'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

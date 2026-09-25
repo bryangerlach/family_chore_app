@@ -10,6 +10,7 @@ services:
     volumes:
       - /opt/appdata/family_chore_app/db:/app/db
       - /opt/appdata/family_chore_app/staticfiles:/app/staticfiles
+      - /opt/appdata/family_chore_app/media:/app/media
     environment:
       - DEBUG=False
       - SECRET_KEY=django-insecure-change-this-to-a-secure-random-key-in-production
