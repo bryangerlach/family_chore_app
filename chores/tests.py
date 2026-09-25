@@ -219,3 +219,44 @@ class CoinStoreAndLedgerTestCase(TestCase):
         # Verify that loading the child dashboard view doesn't crash with MultipleObjectsReturned
         dashboard_response = self.client.get(reverse('child_dashboard', args=[self.child.id]))
         self.assertEqual(dashboard_response.status_code, 200)
+
+class TaskImageAndEditTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.parent = Profile.objects.create(name="Dad", user_type="parent")
+        
+        # Authenticate parent session
+        session = self.client.session
+        session['is_parent_authenticated'] = True
+        session.save()
+        
+        self.task = Task.objects.create(
+            title="Clean Room",
+            star_value=3
+        )
+
+    def test_edit_task_clears_image(self):
+        """Verify that checking 'clear_image' successfully removes the image from the task."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        
+        # Assign an initial dummy image
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff'
+            b'\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00'
+            b'\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b'
+        )
+        uploaded_image = SimpleUploadedFile('small.gif', small_gif, content_type='image/gif')
+        self.task.image = uploaded_image
+        self.task.save()
+        self.assertTrue(bool(self.task.image))
+        
+        # Post edit request with clear_image checked
+        response = self.client.post(reverse('edit_task', args=[self.task.id]), {
+            'title': 'Clean Room Updated',
+            'star_value': 3,
+            'clear_image': 'on'
+        })
+        
+        self.assertEqual(response.status_code, 302)
+        self.task.refresh_from_db()
+        self.assertFalse(bool(self.task.image))
