@@ -196,3 +196,26 @@ class CoinStoreAndLedgerTestCase(TestCase):
         self.assertEqual(self.child.get_coin_balance(), 35)
         # Stars granted should reflect in profile balance calculation
         self.assertEqual(self.child.get_stars_balance(), 1)
+
+    def test_multiple_coin_store_purchases_same_day(self):
+        """Verify that purchasing a star-granting item multiple times on the same day works without collision or errors."""
+        initial_coins = self.child.get_coin_balance() # 50
+        initial_stars = self.child.get_stars_balance() # 0
+        
+        # First purchase
+        response1 = self.client.get(reverse('buy_coin_item', args=[self.child.id, self.store_item.id]))
+        self.assertEqual(response1.status_code, 302)
+        
+        # Second purchase on the same day
+        response2 = self.client.get(reverse('buy_coin_item', args=[self.child.id, self.store_item.id]))
+        self.assertEqual(response2.status_code, 302)
+        
+        self.child.refresh_from_db()
+        
+        # Check balances: 50 - 15 - 15 = 20 coins; 0 + 1 + 1 = 2 stars
+        self.assertEqual(self.child.get_coin_balance(), 20)
+        self.assertEqual(self.child.get_stars_balance(), 2)
+        
+        # Verify that loading the child dashboard view doesn't crash with MultipleObjectsReturned
+        dashboard_response = self.client.get(reverse('child_dashboard', args=[self.child.id]))
+        self.assertEqual(dashboard_response.status_code, 200)

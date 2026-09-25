@@ -198,20 +198,24 @@ def buy_coin_item(request, profile_id, item_id):
     item = get_object_or_404(CoinStoreItem, id=item_id)
     
     if profile.get_coin_balance() >= item.coin_cost:
+        # Deduct coins
         CoinLedger.objects.create(
             child=profile,
             amount=-item.coin_cost,
             reason=f"Purchased: {item.title}"
         )
         
+        # If item grants stars, create a unique purchase task and approved status
         if item.star_value_granted > 0:
-            dummy_task, _ = Task.objects.get_or_create(
-                title=f"Coin Store Purchase: {item.title}",
-                defaults={'star_value': item.star_value_granted}
+            timestamp_str = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+            purchase_task = Task.objects.create(
+                title=f"Coin Purchase: {item.title} ({timestamp_str})",
+                star_value=item.star_value_granted,
+                allowed_days="0,1,2,3,4,5,6"
             )
             DailyTaskStatus.objects.create(
                 child=profile,
-                task=dummy_task,
+                task=purchase_task,
                 date=timezone.localdate(),
                 status='approved'
             )
