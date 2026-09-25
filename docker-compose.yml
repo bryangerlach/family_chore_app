@@ -8,10 +8,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - sqlite_data:/app/db
+      - /opt/appdata/family_chore_app/db:/app/db
+      - /opt/appdata/family_chore_app/staticfiles:/app/staticfiles
     environment:
       - DEBUG=False
       - SECRET_KEY=django-insecure-change-this-to-a-secure-random-key-in-production
-
-volumes:
-  sqlite_data:

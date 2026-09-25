@@ -8,4 +8,7 @@ while ! python manage.py migrate  2>&1; do
     sleep 3
 done
 
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
+
 exec "$@"
