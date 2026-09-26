@@ -10,7 +10,8 @@ from chores.models import (
     Reward,
     RedemptionLog,
     CoinStoreItem,
-    CoinLedger
+    CoinLedger,
+    StarLedger
 )
 from django.utils import timezone
 
@@ -170,17 +171,27 @@ class RewardApprovalWorkflowTestCase(TestCase):
 
     def test_reject_reward_refunds_stars(self):
         """Verify that rejecting a reward request via approve_reward view refunds the stars."""
-        # Setup child and give them 10 stars via an approved task
+        # Setup child and give them 10 stars via StarLedger (representing approved chore earnings)
         child = Profile.objects.create(name="Leo", user_type="child")
-        task = Task.objects.create(title="Big Chore", star_value=10)
-        DailyTaskStatus.objects.create(child=child, task=task, date=timezone.localdate(), status='approved')
+        StarLedger.objects.create(
+            child=child,
+            amount=10,
+            reason="Completed chore: Big Chore"
+        )
         self.assertEqual(child.get_stars_balance(), 10)
         
         reward = Reward.objects.create(title="Toy", star_cost=5)
         
-        # Create a pending redemption (which holds/deducts 5 stars)
+        # Create a pending redemption (which holds/deducts 5 stars via ledger)
         redemption = RedemptionLog.objects.create(child=child, reward=reward, status='pending')
-        self.assertEqual(child.get_stars_balance(), 5) # 10 earned - 5 pending
+        
+        # Manually deduct 5 stars for the request (as redeem_reward view does)
+        StarLedger.objects.create(
+            child=child,
+            amount=-5,
+            reason=f"Requested reward: {reward.title}"
+        )
+        self.assertEqual(child.get_stars_balance(), 5) # 10 earned - 5 spent
         
         # Authenticate parent session
         client = Client()
