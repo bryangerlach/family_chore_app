@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ profile.name }}'s Tasks</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
     <div class="max-w-xl mx-auto">
@@ -131,7 +133,7 @@
                 <a href="{% url 'quiz_hub' profile.id %}" class="bg-blue-600/80 hover:bg-blue-600 border border-blue-500 p-4 rounded-2xl text-center font-bold text-sm shadow-xl transition flex items-center justify-center gap-2">
                     <span>🧠 Learning Quizzes</span>
                 </a>
-                <a href="{% url 'coin_store' profile.id %}" class="bg-yellow-600/80 hover:bg-yellow-600 border border-yellow-500 p-4 rounded-2xl text-center font-bold text-sm shadow-xl transition flex items-center justify-center gap-2 text-slate-950">
+                <a href="{% url 'coin_store' profile.id %}" onclick="playAndNavigate(event, 'coin', this.href)" class="bg-yellow-600/80 hover:bg-yellow-600 border border-yellow-500 p-4 rounded-2xl text-center font-bold text-sm shadow-xl transition flex items-center justify-center gap-2 text-slate-950">
                     <span>🪙 Coin Store</span>
                 </a>
             </div>
@@ -155,7 +157,7 @@
                     
                     <div class="pt-2 flex justify-end">
                         {% if ts.status == 'pending' or ts.status == 'denied' %}
-                            <form action="{% url 'request_approval' ts.id %}" method="POST" class="w-full">
+                            <form action="{% url 'request_approval' ts.id %}" method="POST" class="w-full" onsubmit="playAndSubmit(event, 'task')">
                                 {% csrf_token %}
                                 <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-extrabold text-base sm:text-lg py-4 px-6 rounded-2xl shadow-lg transition">
                                     {% if ts.status == 'denied' %}Resubmit to Parent 🔄{% else %}Done! Ask Parent 🙋‍♂️{% endif %}
@@ -209,7 +211,7 @@
 
                         <div>
                             {% if stars_balance >= reward.star_cost %}
-                                <form action="{% url 'redeem_reward' profile.id reward.id %}" method="POST">
+                                <form action="{% url 'redeem_reward' profile.id reward.id %}" method="POST" onsubmit="playAndSubmit(event, 'reward')">
                                     {% csrf_token %}
                                     <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold py-3 px-4 rounded-2xl text-sm shadow transition">
                                         Request Reward! 🎁
@@ -235,6 +237,6 @@
             const picker = document.getElementById('emojiPicker');
             picker.classList.toggle('hidden');
         }
-    </script>
+        </script>
 </body>
 </html>

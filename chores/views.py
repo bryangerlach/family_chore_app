@@ -176,7 +176,22 @@ def quiz_hub(request, profile_id):
         q.current_reward = max(1, q.coin_reward - wrong_count)
         questions_data.append(q)
     
+    # Shuffle available questions normally
     random.shuffle(questions_data)
+    
+    # If an answer was just marked incorrect, pin that specific question to the top!
+    focus_id = request.GET.get('focus')
+    if focus_id:
+        try:
+            focus_id = int(focus_id)
+            for i, q in enumerate(questions_data):
+                if q.id == focus_id:
+                    focused_q = questions_data.pop(i)
+                    questions_data.insert(0, focused_q)
+                    break
+        except ValueError:
+            pass
+
     feedback = request.GET.get('feedback')
     
     return render(request, 'chores/quiz_hub.html', {
@@ -226,7 +241,7 @@ def submit_quiz(request, profile_id, question_id):
                 question=question, 
                 option_chosen=selected_answer
             )
-            return redirect(f"/child/{profile.id}/quiz/?feedback=incorrect")
+            return redirect(f"/child/{profile.id}/quiz/?feedback=incorrect&focus={question.id}")
             
     return redirect('quiz_hub', profile_id=profile.id)
 
@@ -510,18 +525,23 @@ def delete_task(request, task_id):
 def approve_task(request, task_status_id):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
-        
-    task_status = get_object_or_404(DailyTaskStatus, id=task_status_id)
-    if task_status.status == 'waiting':
-        task_status.status = 'approved'
+    action = request.POST.get('action')
+    if action == 'reject':
+        task_status = get_object_or_404(DailyTaskStatus, id=task_status_id)
+        task_status.status = 'denied'
         task_status.save()
-        
-        # Log earned stars to StarLedger
-        StarLedger.objects.create(
-            child=task_status.child,
-            amount=task_status.task.star_value,
-            reason=f"Completed chore: {task_status.task.title}"
-        )
+    else:
+        task_status = get_object_or_404(DailyTaskStatus, id=task_status_id)
+        if task_status.status == 'waiting':
+            task_status.status = 'approved'
+            task_status.save()
+            
+            # Log earned stars to StarLedger
+            StarLedger.objects.create(
+                child=task_status.child,
+                amount=task_status.task.star_value,
+                reason=f"Completed chore: {task_status.task.title}"
+            )
     return redirect('parent_dashboard')
 
 
@@ -560,16 +580,24 @@ def update_weekly_status(request, child_id, task_id, date_str):
     )
     
     if status_obj.status == 'approved':
+        # Unapproving: revert status and deduct stars via ledger
         status_obj.status = 'pending'
         status_obj.save()
-        # Optionally handle deduction if unapproving weekly grid, or leave manual
+        
+        StarLedger.objects.create(
+            child=child,
+            amount=-task.star_value,
+            reason=f"Unapproved chore ({target_date}): {task.title}"
+        )
     else:
+        # Approving: set status and add stars via ledger
         status_obj.status = 'approved'
         status_obj.save()
+        
         StarLedger.objects.create(
             child=child,
             amount=task.star_value,
-            reason=f"Completed chore: {task.title}"
+            reason=f"Completed chore ({target_date}): {task.title}"
         )
     
     return redirect('parent_dashboard')

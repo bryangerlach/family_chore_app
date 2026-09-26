@@ -1,9 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin Exchange Store</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
     <div class="max-w-xl mx-auto">
@@ -50,7 +52,7 @@
 
                     <div>
                         {% if coin_balance >= item.coin_cost %}
-                            <form action="{% url 'buy_coin_item' profile.id item.id %}" method="POST">
+                            <form action="{% url 'buy_coin_item' profile.id item.id %}" method="POST" onsubmit="playAndSubmit(event, 'purchase')">
                                 {% csrf_token %}
                                 <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-slate-950 font-bold py-3 px-4 rounded-2xl text-sm transition">
                                     Buy Item 🛒

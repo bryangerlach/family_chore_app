@@ -203,8 +203,8 @@
         </details>
 
         <!-- MANUAL BALANCE ADJUSTMENTS SECTION -->
-        <div class="mt-8 bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl">
-            <h2 class="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
+        <div class="mt-8 bg-slate-800 border border-slate-700 rounded-3xl p-4 sm:p-6 shadow-xl">
+            <h2 class="text-xl font-bold text-amber-400 mb-2 flex items-center gap-2">
                 <span>⚡ Manual Balance Adjustments</span>
             </h2>
             <p class="text-xs text-slate-400 mb-4">Quickly grant bonus points or apply penalties directly to a child's ledger.</p>
@@ -223,25 +223,29 @@
                             </div>
                         </div>
 
-                        <div class="space-y-2 pt-2 border-t border-slate-600/40">
+                        <div class="space-y-4 pt-3 border-t border-slate-600/40">
                             <!-- Star Adjustment Form -->
-                            <form action="{% url 'adjust_child_stars' cs.child.id %}" method="POST" class="flex gap-2">
+                            <form action="{% url 'adjust_child_stars' cs.child.id %}" method="POST" class="flex flex-col sm:flex-row gap-2">
                                 {% csrf_token %}
-                                <input type="number" name="amount" placeholder="+/- Stars" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-24 focus:outline-none focus:border-amber-500">
-                                <input type="text" name="reason" placeholder="Star reason (e.g., Bonus)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs flex-grow focus:outline-none focus:border-amber-500">
-                                <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition whitespace-nowrap">
-                                    Adjust ⭐
-                                </button>
+                                <input type="text" name="reason" placeholder="Star reason (e.g., Bonus)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-full sm:flex-grow focus:outline-none focus:border-amber-500">
+                                <div class="flex gap-2">
+                                    <input type="number" name="amount" placeholder="+/-" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-24 sm:w-20 focus:outline-none focus:border-amber-500">
+                                    <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition flex-grow sm:flex-grow-0 whitespace-nowrap">
+                                        Adjust ⭐
+                                    </button>
+                                </div>
                             </form>
 
                             <!-- Coin Adjustment Form -->
-                            <form action="{% url 'adjust_child_coins' cs.child.id %}" method="POST" class="flex gap-2">
+                            <form action="{% url 'adjust_child_coins' cs.child.id %}" method="POST" class="flex flex-col sm:flex-row gap-2">
                                 {% csrf_token %}
-                                <input type="number" name="amount" placeholder="+/- Coins" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-24 focus:outline-none focus:border-yellow-500">
-                                <input type="text" name="reason" placeholder="Coin reason (e.g., Allowance)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs flex-grow focus:outline-none focus:border-yellow-500">
-                                <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition whitespace-nowrap">
-                                    Adjust 🪙
-                                </button>
+                                <input type="text" name="reason" placeholder="Coin reason (e.g., Allowance)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-full sm:flex-grow focus:outline-none focus:border-yellow-500">
+                                <div class="flex gap-2">
+                                    <input type="number" name="amount" placeholder="+/-" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-24 sm:w-20 focus:outline-none focus:border-yellow-500">
+                                    <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition flex-grow sm:flex-grow-0 whitespace-nowrap">
+                                        Adjust 🪙
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -249,8 +253,6 @@
                     <p class="text-slate-400 text-sm col-span-2">No children profiles found.</p>
                 {% endfor %}
             </div>
-        </div>
-        
         </div>
     </div>
 <script>
