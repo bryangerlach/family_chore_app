@@ -112,6 +112,35 @@ def redeem_reward(request, profile_id, reward_id):
         
     return redirect('child_dashboard', profile_id=child.id)
 
+def reverse_star_ledger(request, ledger_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    entry = get_object_or_404(StarLedger, id=ledger_id)
+    
+    StarLedger.objects.create(
+        child=entry.child,
+        amount=-entry.amount,
+        reason=f"Reversal of star entry #{entry.id}: {entry.reason}"
+    )
+    
+    return redirect('child_star_history', profile_id=entry.child.id)
+
+
+def reverse_coin_ledger(request, ledger_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    entry = get_object_or_404(CoinLedger, id=ledger_id)
+    
+    CoinLedger.objects.create(
+        child=entry.child,
+        amount=-entry.amount,
+        reason=f"Reversal of coin entry #{entry.id}: {entry.reason}"
+    )
+    
+    return redirect('child_coin_history', profile_id=entry.child.id)
+
 def adjust_child_stars(request, child_id):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
@@ -406,8 +435,11 @@ def child_star_history(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
     ledgers = StarLedger.objects.filter(child=profile).order_by('-timestamp')
     
-    back_url = request.META.get('HTTP_REFERER')
-    if not back_url or 'login' in back_url:
+    is_parent = request.session.get('is_parent_authenticated', False)
+    
+    if is_parent:
+        back_url = reverse('parent_dashboard')
+    else:
         back_url = reverse('child_dashboard', args=[profile.id])
     
     return render(request, 'chores/star_history.html', {
@@ -415,21 +447,26 @@ def child_star_history(request, profile_id):
         'ledgers': ledgers,
         'stars_balance': profile.get_stars_balance(),
         'back_url': back_url,
+        'is_parent': is_parent,
     })
 
 
-def child_coin_history(request, profile_id):  
+def child_coin_history(request, profile_id):   
     child = get_object_or_404(Profile, id=profile_id, user_type='child')
     ledgers = CoinLedger.objects.filter(child=child).order_by('-timestamp')
     
-    back_url = request.META.get('HTTP_REFERER')
-    if not back_url or 'login' in back_url:
+    is_parent = request.session.get('is_parent_authenticated', False)
+    
+    if is_parent:
         back_url = reverse('parent_dashboard')
+    else:
+        back_url = reverse('child_dashboard', args=[child.id])
     
     return render(request, 'chores/coin_history.html', {
         'child': child,
         'ledgers': ledgers,
         'back_url': back_url,
+        'is_parent': is_parent,
     })
 
 

@@ -43,6 +43,16 @@
                                 <td class="p-3 text-right font-bold {% if entry.amount > 0 %}text-green-400{% else %}text-red-400{% endif %}">
                                     {% if entry.amount > 0 %}+{{ entry.amount }}{% else %}{{ entry.amount }}{% endif %} 🪙
                                 </td>
+                                {% if is_parent %}
+                                    <td class="px-4 py-3 text-right">
+                                        <form action="{% url 'reverse_coin_ledger' entry.id %}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reverse this transaction?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-xl text-xs font-bold transition">
+                                                Reverse ⟲
+                                            </button>
+                                        </form>
+                                    </td>
+                                {% endif %}
                             </tr>
                         {% empty %}
                             <tr>

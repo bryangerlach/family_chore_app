@@ -33,6 +33,8 @@ urlpatterns = [
     path('parent/update-status/<int:child_id>/<int:task_id>/<str:date_str>/', views.update_weekly_status, name='update_weekly_status'),
     path('child/<int:child_id>/adjust-stars/', views.adjust_child_stars, name='adjust_child_stars'),
     path('child/<int:child_id>/adjust-coins/', views.adjust_child_coins, name='adjust_child_coins'),
+    path('ledger/star/<int:ledger_id>/reverse/', views.reverse_star_ledger, name='reverse_star_ledger'),
+    path('ledger/coin/<int:ledger_id>/reverse/', views.reverse_coin_ledger, name='reverse_coin_ledger'),
     
     # Profiles
     path('parent/add-profile/', views.add_profile, name='add_profile'),
