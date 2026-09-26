@@ -4,6 +4,7 @@ import io
 import urllib.request
 import random
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from django.db import IntegrityError
 from .models import (
@@ -390,23 +391,30 @@ def child_star_history(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
     ledgers = StarLedger.objects.filter(child=profile).order_by('-timestamp')
     
+    back_url = request.META.get('HTTP_REFERER')
+    if not back_url or 'login' in back_url:
+        back_url = reverse('child_dashboard', args=[profile.id])
+    
     return render(request, 'chores/star_history.html', {
         'profile': profile,
         'ledgers': ledgers,
         'stars_balance': profile.get_stars_balance(),
+        'back_url': back_url,
     })
 
 
-def child_coin_history(request, profile_id):
-    if not request.session.get('is_parent_authenticated'):
-        return redirect('parent_login')
-        
+def child_coin_history(request, profile_id):  
     child = get_object_or_404(Profile, id=profile_id, user_type='child')
     ledgers = CoinLedger.objects.filter(child=child).order_by('-timestamp')
+    
+    back_url = request.META.get('HTTP_REFERER')
+    if not back_url or 'login' in back_url:
+        back_url = reverse('parent_dashboard')
     
     return render(request, 'chores/coin_history.html', {
         'child': child,
         'ledgers': ledgers,
+        'back_url': back_url,
     })
 
 

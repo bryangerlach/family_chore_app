@@ -112,28 +112,6 @@
                         </div>
                     </div>
 
-                    <!-- Star Manual Adjustment Form -->
-                    <div class="mt-4 pt-4 border-t border-slate-700/60">
-                        <form action="{% url 'adjust_child_stars' cs.child.id %}" method="POST" class="flex flex-col sm:flex-row gap-2">
-                            {% csrf_token %}
-                            <input type="number" name="amount" placeholder="+/- Stars" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs sm:w-28 focus:outline-none focus:border-amber-500">
-                            <input type="text" name="reason" placeholder="Reason (e.g. Cleaned garage)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs flex-grow focus:outline-none focus:border-amber-500">
-                            <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition whitespace-nowrap">
-                                Adjust ⭐
-                            </button>
-                        </form>
-                    </div>
-
-                    <!-- Coin Manual Adjustment Form -->
-                    <form action="{% url 'adjust_child_coins' cs.child.id %}" method="POST" class="flex flex-col sm:flex-row gap-2 mt-2">
-                        {% csrf_token %}
-                        <input type="number" name="amount" placeholder="+/- Coins" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs sm:w-28 focus:outline-none focus:border-yellow-500">
-                        <input type="text" name="reason" placeholder="Reason (e.g. Extra help)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs flex-grow focus:outline-none focus:border-yellow-500">
-                        <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition whitespace-nowrap">
-                            Adjust 🪙
-                        </button>
-                    </form>
-
                     <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-700 text-xs">
                         <div class="bg-slate-700/40 p-3 rounded-2xl border border-slate-600/60">
                             <span class="text-slate-400 block mb-1">Today's Tasks</span>
@@ -158,16 +136,6 @@
                 
                 <!-- Collapsed Summary Preview (Dates & Quick Counts) -->
                 <div class="flex items-center gap-2 text-xs font-normal text-slate-300 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-                    <span class="text-slate-400 font-semibold mr-1">Summary:</span>
-                    {% for wd in weekly_data %}
-                        <span class="bg-slate-700/80 px-2.5 py-1 rounded-xl border border-slate-600 whitespace-nowrap">
-                            {{ wd.child.emoji }} {{ wd.child.name }}: 
-                            {% with total_approved=0 %}
-                                {% comment %} Quick summary pill calculation {% endcomment %}
-                                Active
-                            {% endwith %}
-                        </span>
-                    {% endfor %}
                     <span class="text-slate-400 ml-2 group-open:rotate-180 transition-transform text-sm">▼ </span>
                 </div>
             </summary>
@@ -227,12 +195,61 @@
                             </tbody>
                         </table>
                     </div>
+
                 {% else %}
                     <p class="text-slate-400 text-sm">No weekly history data available yet.</p>
                 {% endif %}
             </div>
         </details>
 
+        <!-- MANUAL BALANCE ADJUSTMENTS SECTION -->
+        <div class="mt-8 bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl">
+            <h2 class="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
+                <span>⚡ Manual Balance Adjustments</span>
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">Quickly grant bonus points or apply penalties directly to a child's ledger.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for cs in children_summary %}
+                    <div class="bg-slate-700/40 border border-slate-600/60 rounded-2xl p-4 flex flex-col justify-between gap-3">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">{{ cs.child.emoji }}</span>
+                                <span class="font-bold text-slate-100 text-base">{{ cs.child.name }}</span>
+                            </div>
+                            <div class="flex gap-2 text-xs font-bold">
+                                <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1 rounded-xl">⭐ {{ cs.child.get_stars_balance }}</span>
+                                <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-2.5 py-1 rounded-xl">🪙 {{ cs.child.get_coin_balance }}</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 pt-2 border-t border-slate-600/40">
+                            <!-- Star Adjustment Form -->
+                            <form action="{% url 'adjust_child_stars' cs.child.id %}" method="POST" class="flex gap-2">
+                                {% csrf_token %}
+                                <input type="number" name="amount" placeholder="+/- Stars" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-24 focus:outline-none focus:border-amber-500">
+                                <input type="text" name="reason" placeholder="Star reason (e.g., Bonus)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs flex-grow focus:outline-none focus:border-amber-500">
+                                <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition whitespace-nowrap">
+                                    Adjust ⭐
+                                </button>
+                            </form>
+
+                            <!-- Coin Adjustment Form -->
+                            <form action="{% url 'adjust_child_coins' cs.child.id %}" method="POST" class="flex gap-2">
+                                {% csrf_token %}
+                                <input type="number" name="amount" placeholder="+/- Coins" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs w-24 focus:outline-none focus:border-yellow-500">
+                                <input type="text" name="reason" placeholder="Coin reason (e.g., Allowance)" required class="bg-slate-700 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs flex-grow focus:outline-none focus:border-yellow-500">
+                                <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs shadow transition whitespace-nowrap">
+                                    Adjust 🪙
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-slate-400 text-sm col-span-2">No children profiles found.</p>
+                {% endfor %}
+            </div>
+        </div>
         
         </div>
     </div>
