@@ -19,21 +19,12 @@ class Profile(models.Model):
     emoji = models.CharField(max_length=10, default="👦", help_text="Profile icon emoji")
 
     def get_stars_balance(self):
-        # Earned stars from approved tasks
-        earned = DailyTaskStatus.objects.filter(child=self, status='approved').aggregate(
-            total=models.Sum('task__star_value')
+        # Sum all ledger entries (task earnings, coin store purchases, refunds, etc.)
+        total_stars = StarLedger.objects.filter(child=self).aggregate(
+            total=models.Sum('amount')
         )['total'] or 0
+        return total_stars
         
-        # Only hold/subtract stars if the redemption is still pending or has been approved
-        spent = RedemptionLog.objects.filter(
-            child=self, 
-            status__in=['pending', 'approved']
-        ).aggregate(
-            total=models.Sum('reward__star_cost')
-        )['total'] or 0
-        
-        return earned - spent
-    
     def get_coin_balance(self):
         return sum(t.amount for t in self.coin_transactions.all())
 
@@ -112,6 +103,12 @@ class RedemptionLog(models.Model):
 
     def __str__(self):
         return f"{self.child.name} requested {self.reward.title} ({self.status})"
+
+class StarLedger(models.Model):
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    amount = models.IntegerField() # Positive for earned, negative for spent/redeemed
+    reason = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
 
 
 # ==========================================

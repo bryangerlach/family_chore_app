@@ -292,3 +292,58 @@ class TaskImageAndEditTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
         self.task.refresh_from_db()
         self.assertFalse(bool(self.task.image))
+
+class ManualAdjustmentTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.parent = Profile.objects.create(name="Dad", user_type="parent", pin="1234")
+        self.child = Profile.objects.create(name="Leo", user_type="child")
+        
+        # Authenticate parent session
+        session = self.client.session
+        session['is_parent_authenticated'] = True
+        session.save()
+
+    def test_adjust_child_stars_success(self):
+        """Verify parent can manually add and deduct stars via adjust_child_stars view."""
+        url = reverse('adjust_child_stars', args=[self.child.id])
+        
+        # Add stars
+        response = self.client.post(url, {'amount': '10', 'reason': 'Bonus reward'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.child.get_stars_balance(), 10)
+        self.assertTrue(StarLedger.objects.filter(child=self.child, amount=10).exists())
+        
+        # Deduct stars
+        response = self.client.post(url, {'amount': '-3', 'reason': 'Penalty'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.child.get_stars_balance(), 7)
+
+    def test_adjust_child_coins_success(self):
+        """Verify parent can manually add and deduct coins via adjust_child_coins view."""
+        url = reverse('adjust_child_coins', args=[self.child.id])
+        
+        # Add coins
+        response = self.client.post(url, {'amount': '25', 'reason': 'Extra allowance'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.child.get_coin_balance(), 25)
+        self.assertTrue(CoinLedger.objects.filter(child=self.child, amount=25).exists())
+        
+        # Deduct coins
+        response = self.client.post(url, {'amount': '-5', 'reason': 'Fine'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.child.get_coin_balance(), 20)
+
+    def test_unauthenticated_adjustment_redirects(self):
+        """Verify unauthenticated users cannot adjust balances."""
+        unauth_client = Client() # Session not authenticated
+        url_stars = reverse('adjust_child_stars', args=[self.child.id])
+        url_coins = reverse('adjust_child_coins', args=[self.child.id])
+        
+        res1 = unauth_client.post(url_stars, {'amount': '5', 'reason': 'Unauthorized'})
+        res2 = unauth_client.post(url_coins, {'amount': '5', 'reason': 'Unauthorized'})
+        
+        self.assertEqual(res1.status_code, 302)
+        self.assertEqual(res2.status_code, 302)
+        self.assertEqual(self.child.get_stars_balance(), 0)
+        self.assertEqual(self.child.get_coin_balance(), 0)

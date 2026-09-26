@@ -31,6 +31,8 @@ urlpatterns = [
     path('task/<int:task_status_id>/deny/', views.deny_task, name='deny_task'),
     path('task/<int:task_status_id>/reset/', views.reset_task, name='reset_task'),
     path('parent/update-status/<int:child_id>/<int:task_id>/<str:date_str>/', views.update_weekly_status, name='update_weekly_status'),
+    path('child/<int:child_id>/adjust-stars/', views.adjust_child_stars, name='adjust_child_stars'),
+    path('child/<int:child_id>/adjust-coins/', views.adjust_child_coins, name='adjust_child_coins'),
     
     # Profiles
     path('parent/add-profile/', views.add_profile, name='add_profile'),

@@ -8,12 +8,12 @@ from django.utils import timezone
 from django.db import IntegrityError
 from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
-    CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, QuizWrongAttempt
+    CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, QuizWrongAttempt, StarLedger
 )
 
 
 # ==========================================
-#  CORE & PUBLIC VIEWS
+# CORE & PUBLIC VIEWS
 # ==========================================
 
 def profile_list(request):
@@ -22,7 +22,7 @@ def profile_list(request):
 
 
 # ==========================================
-#  CHILD PORTALS & GAMIFICATION
+# CHILD PORTALS & GAMIFICATION
 # ==========================================
 
 def child_dashboard(request, profile_id):
@@ -32,7 +32,7 @@ def child_dashboard(request, profile_id):
     python_wd = today.weekday()
     sunday_based_wd = str((python_wd + 1) % 7)
     
-    all_tasks = Task.objects.exclude(title__startswith="Coin Purchase:").exclude(title__startswith="Coin Store Purchase:")
+    all_tasks = Task.objects.all()
     active_tasks = []
     for task in all_tasks:
         allowed = task.allowed_days.split(',') if task.allowed_days else ["0","1","2","3","4","5","6"]
@@ -100,10 +100,60 @@ def redeem_reward(request, profile_id, reward_id):
     reward = get_object_or_404(Reward, id=reward_id)
     
     if child.get_stars_balance() >= reward.star_cost:
-        RedemptionLog.objects.create(child=child, reward=reward)
+        RedemptionLog.objects.create(child=child, reward=reward, status='pending')
+        
+        # Deduct stars immediately via ledger
+        StarLedger.objects.create(
+            child=child,
+            amount=-reward.star_cost,
+            reason=f"Requested reward: {reward.title}"
+        )
         
     return redirect('child_dashboard', profile_id=child.id)
 
+def adjust_child_stars(request, child_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    child = get_object_or_404(Profile, id=child_id, user_type='child')
+    
+    if request.method == 'POST':
+        try:
+            amount = int(request.POST.get('amount', 0))
+            reason = request.POST.get('reason', 'Parent adjustment').strip()
+            
+            if amount != 0 and reason:
+                StarLedger.objects.create(
+                    child=child,
+                    amount=amount,
+                    reason=f"Manual Adjustment: {reason}"
+                )
+        except ValueError:
+            pass
+            
+    return redirect('parent_dashboard')
+
+def adjust_child_coins(request, child_id):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    child = get_object_or_404(Profile, id=child_id, user_type='child')
+    
+    if request.method == 'POST':
+        try:
+            amount = int(request.POST.get('amount', 0))
+            reason = request.POST.get('reason', 'Parent adjustment').strip()
+            
+            if amount != 0 and reason:
+                CoinLedger.objects.create(
+                    child=child,
+                    amount=amount,
+                    reason=f"Manual Adjustment: {reason}"
+                )
+        except ValueError:
+            pass
+            
+    return redirect('parent_dashboard')
 
 def quiz_hub(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
@@ -205,19 +255,12 @@ def buy_coin_item(request, profile_id, item_id):
             reason=f"Purchased: {item.title}"
         )
         
-        # If item grants stars, create a unique purchase task and approved status
+        # If item grants stars, log directly to StarLedger
         if item.star_value_granted > 0:
-            timestamp_str = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-            purchase_task = Task.objects.create(
-                title=f"Coin Purchase: {item.title} ({timestamp_str})",
-                star_value=item.star_value_granted,
-                allowed_days="0,1,2,3,4,5,6"
-            )
-            DailyTaskStatus.objects.create(
+            StarLedger.objects.create(
                 child=profile,
-                task=purchase_task,
-                date=timezone.localdate(),
-                status='approved'
+                amount=item.star_value_granted,
+                reason=f"Purchased: {item.title}"
             )
             
         return redirect(f"/child/{profile.id}/coins/?feedback=success")
@@ -226,7 +269,7 @@ def buy_coin_item(request, profile_id, item_id):
 
 
 # ==========================================
-#  PARENT AUTHENTICATION & COMMAND HUB
+# PARENT AUTHENTICATION & COMMAND HUB
 # ==========================================
 
 def parent_login(request):
@@ -258,7 +301,7 @@ def parent_dashboard(request):
     sunday_based_wd = str((python_wd + 1) % 7)
     
     children = Profile.objects.filter(user_type='child')
-    tasks = Task.objects.exclude(title__startswith="Coin Purchase:").exclude(title__startswith="Coin Store Purchase:")
+    tasks = Task.objects.all()
     rewards = Reward.objects.all()
     
     active_today_tasks = []
@@ -345,13 +388,11 @@ def management_hub(request):
 
 def child_star_history(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
-    earned_tasks = DailyTaskStatus.objects.filter(child=profile, status='approved').order_by('-date')
-    spent_rewards = RedemptionLog.objects.filter(child=profile, status='approved').order_by('-redeemed_at')
+    ledgers = StarLedger.objects.filter(child=profile).order_by('-timestamp')
     
     return render(request, 'chores/star_history.html', {
         'profile': profile,
-        'earned_tasks': earned_tasks,
-        'spent_rewards': spent_rewards,
+        'ledgers': ledgers,
         'stars_balance': profile.get_stars_balance(),
     })
 
@@ -370,7 +411,7 @@ def child_coin_history(request, profile_id):
 
 
 # ==========================================
-#  PARENT MANAGEMENT & ADMINISTRATION ACTIONS
+# PARENT MANAGEMENT & ADMINISTRATION ACTIONS
 # ==========================================
 
 # Profiles
@@ -433,17 +474,13 @@ def edit_task(request, task_id):
         task.description = request.POST.get('description', task.description)
         task.star_value = request.POST.get('star_value', task.star_value)
         
-        # Handle image deletion if requested
         if request.POST.get('clear_image') == 'on':
             if task.image:
                 task.image.delete(save=False)
             task.image = None
-            
-        # Handle reference image update if a new one is provided
         elif 'image' in request.FILES:
             task.image = request.FILES['image']
             
-        # Handle days of week checkboxes
         days_list = request.POST.getlist('allowed_days')
         if days_list:
             task.allowed_days = ",".join(days_list)
@@ -470,6 +507,13 @@ def approve_task(request, task_status_id):
     if task_status.status == 'waiting':
         task_status.status = 'approved'
         task_status.save()
+        
+        # Log earned stars to StarLedger
+        StarLedger.objects.create(
+            child=task_status.child,
+            amount=task_status.task.star_value,
+            reason=f"Completed chore: {task_status.task.title}"
+        )
     return redirect('parent_dashboard')
 
 
@@ -509,9 +553,16 @@ def update_weekly_status(request, child_id, task_id, date_str):
     
     if status_obj.status == 'approved':
         status_obj.status = 'pending'
+        status_obj.save()
+        # Optionally handle deduction if unapproving weekly grid, or leave manual
     else:
         status_obj.status = 'approved'
-    status_obj.save()
+        status_obj.save()
+        StarLedger.objects.create(
+            child=child,
+            amount=task.star_value,
+            reason=f"Completed chore: {task.title}"
+        )
     
     return redirect('parent_dashboard')
 
@@ -573,6 +624,12 @@ def approve_reward(request, redemption_id):
     redemption = get_object_or_404(RedemptionLog, id=redemption_id)
     action = request.POST.get('action')
     if action == 'reject':
+        # Refund stars via StarLedger
+        StarLedger.objects.create(
+            child=redemption.child,
+            amount=redemption.reward.star_cost,
+            reason=f"Refund: Denied reward '{redemption.reward.title}'"
+        )
         redemption.delete()
     else:
         redemption.status = 'approved'
@@ -584,6 +641,11 @@ def deny_reward(request, redemption_id):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
     redemption = get_object_or_404(RedemptionLog, id=redemption_id)
+    StarLedger.objects.create(
+        child=redemption.child,
+        amount=redemption.reward.star_cost,
+        reason=f"Refund: Denied reward '{redemption.reward.title}'"
+    )
     redemption.delete()
     return redirect('parent_dashboard')
 

@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 sm:p-8">
-    <div class="max-w-3xl mx-auto">
+    <div class="max-w-2xl mx-auto">
         <!-- Header & Back Button -->
         <div class="flex justify-between items-center bg-slate-800 border border-slate-700 rounded-3xl p-5 mb-6 shadow-xl">
             <div class="flex items-center gap-3">
@@ -24,49 +24,25 @@
             </a>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- EARNED STARS LOG -->
-            <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 sm:p-6 shadow-xl">
-                <h2 class="text-lg font-bold text-green-400 mb-4 flex items-center gap-2">
-                    <span>✨ Star Earnings</span>
-                </h2>
-                <div class="space-y-3">
-                    {% for et in earned_tasks %}
-                        <div class="bg-slate-700/50 border border-slate-600/60 p-3.5 rounded-2xl flex justify-between items-center text-sm">
-                            <div>
-                                <strong class="text-slate-200 block">{{ et.task.title }}</strong>
-                                <span class="text-xs text-slate-400">{{ et.date|date:"M j, Y" }}</span>
-                            </div>
-                            <span class="bg-green-900/60 border border-green-700 text-green-300 px-3 py-1 rounded-xl font-bold text-xs">
-                                +{{ et.task.star_value }} ⭐
-                            </span>
+        <!-- STAR LEDGER TRANSACTIONS -->
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 sm:p-6 shadow-xl">
+            <h2 class="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
+                <span>📜 Star Transactions History</span>
+            </h2>
+            <div class="space-y-3">
+                {% for entry in ledgers %}
+                    <div class="bg-slate-700/50 border border-slate-600/60 p-3.5 rounded-2xl flex justify-between items-center text-sm">
+                        <div>
+                            <strong class="text-slate-200 block">{{ entry.reason }}</strong>
+                            <span class="text-xs text-slate-400">{{ entry.timestamp|date:"M j, Y, g:i a" }}</span>
                         </div>
-                    {% empty %}
-                        <p class="text-slate-400 text-sm">No approved star earnings yet.</p>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- SPENT STARS LOG -->
-            <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 sm:p-6 shadow-xl">
-                <h2 class="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
-                    <span>🎁 Reward Redemptions</span>
-                </h2>
-                <div class="space-y-3">
-                    {% for sr in spent_rewards %}
-                        <div class="bg-slate-700/50 border border-slate-600/60 p-3.5 rounded-2xl flex justify-between items-center text-sm">
-                            <div>
-                                <strong class="text-slate-200 block">{{ sr.reward.title }}</strong>
-                                <span class="text-xs text-slate-400">{{ sr.redeemed_at|date:"M j, Y" }}</span>
-                            </div>
-                            <span class="bg-amber-900/60 border border-amber-700 text-amber-300 px-3 py-1 rounded-xl font-bold text-xs">
-                                -{{ sr.reward.star_cost }} ⭐
-                            </span>
-                        </div>
-                    {% empty %}
-                        <p class="text-slate-400 text-sm">No reward redemptions yet.</p>
-                    {% endfor %}
-                </div>
+                        <span class="px-3 py-1 rounded-xl font-bold text-xs border {% if entry.amount > 0 %}bg-green-900/60 border-green-700 text-green-300{% else %}bg-amber-900/60 border-amber-700 text-amber-300{% endif %}">
+                            {{ entry.amount|stringformat:"+d" }} ⭐
+                        </span>
+                    </div>
+                {% empty %}
+                    <p class="text-slate-400 text-sm text-center py-4">No star transactions recorded yet.</p>
+                {% endfor %}
             </div>
         </div>
     </div>
