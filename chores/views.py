@@ -68,6 +68,9 @@ def child_dashboard(request, profile_id):
                 continue
                 
         available_rewards.append(reward)
+
+    solved_question_ids = QuizAttempt.objects.filter(child=profile).values_list('question_id', flat=True)
+    available_quiz_count = QuizQuestion.objects.filter(child=profile).exclude(id__in=solved_question_ids).count()
     
     return render(request, 'chores/child_dashboard.html', {
         'profile': profile,
@@ -75,6 +78,7 @@ def child_dashboard(request, profile_id):
         'rewards': available_rewards,
         'stars_balance': profile.get_stars_balance(),
         'coins_balance': profile.get_coin_balance(),
+        'available_quiz_count': available_quiz_count,
     })
 
 
