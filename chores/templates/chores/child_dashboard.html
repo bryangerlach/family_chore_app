@@ -142,6 +142,18 @@
                 <a href="{% url 'coin_store' profile.id %}" onclick="playAndNavigate(event, 'coin', this.href)" class="bg-yellow-600/80 hover:bg-yellow-600 border border-yellow-500 p-4 rounded-2xl text-center font-bold text-sm shadow-xl transition flex items-center justify-center gap-2 text-slate-950">
                     <span>🪙 Coin Store</span>
                 </a>
+                <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-800 border border-slate-700 hover:border-indigo-500/50 p-4 rounded-2xl flex items-center justify-between transition group">
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">🕹️</span>
+                        <div>
+                            <span class="font-bold text-slate-100 block group-hover:text-indigo-400 transition">Arcade Zone</span>
+                            <span class="text-xs text-slate-400">Play mini-games and beat high scores</span>
+                        </div>
+                    </div>
+                    <span class="bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs px-3 py-1.5 rounded-xl">
+                        Play 🚀
+                    </span>
+                </a>
             </div>
 
         <!-- Task List Cards -->

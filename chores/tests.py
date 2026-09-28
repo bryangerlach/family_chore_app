@@ -358,3 +358,67 @@ class ManualAdjustmentTestCase(TestCase):
         self.assertEqual(res2.status_code, 302)
         self.assertEqual(self.child.get_stars_balance(), 0)
         self.assertEqual(self.child.get_coin_balance(), 0)
+
+class ArcadeAndReversalTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.parent = Profile.objects.create(name="Dad", user_type="parent")
+        self.child = Profile.objects.create(name="Timmy", user_type="child")
+        
+        # Authenticate parent session
+        session = self.client.session
+        session['is_parent_authenticated'] = True
+        session.save()
+
+    def test_arcade_high_score_bonus_awards_coin(self):
+        """Verify that hitting a high score and calling claim_arcade_bonus awards +1 coin to the child."""
+        initial_coins = self.child.get_coin_balance()
+        self.assertEqual(initial_coins, 0)
+        
+        url = reverse('claim_arcade_bonus', args=[self.child.id])
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['new_balance'], 1)
+        self.assertEqual(self.child.get_coin_balance(), 1)
+        self.assertTrue(CoinLedger.objects.filter(child=self.child, amount=1).exists())
+
+    def test_reverse_star_ledger_entry(self):
+        """Verify that reversing a StarLedger entry creates an offsetting counter-entry."""
+        entry = StarLedger.objects.create(
+            child=self.child,
+            amount=10,
+            reason="Initial bonus"
+        )
+        self.assertEqual(self.child.get_stars_balance(), 10)
+        
+        url = reverse('reverse_star_ledger', args=[entry.id])
+        response = self.client.post(url)
+        
+        # Should redirect back to star history
+        self.assertEqual(response.status_code, 302)
+        
+        # Balance should now be 0 (10 + (-10))
+        self.assertEqual(self.child.get_stars_balance(), 0)
+        self.assertEqual(StarLedger.objects.filter(child=self.child).count(), 2)
+
+    def test_reverse_coin_ledger_entry(self):
+        """Verify that reversing a CoinLedger entry creates an offsetting counter-entry."""
+        entry = CoinLedger.objects.create(
+            child=self.child,
+            amount=25,
+            reason="Allowance"
+        )
+        self.assertEqual(self.child.get_coin_balance(), 25)
+        
+        url = reverse('reverse_coin_ledger', args=[entry.id])
+        response = self.client.post(url)
+        
+        # Should redirect back to coin history
+        self.assertEqual(response.status_code, 302)
+        
+        # Balance should now be 0 (25 + (-25))
+        self.assertEqual(self.child.get_coin_balance(), 0)
+        self.assertEqual(CoinLedger.objects.filter(child=self.child).count(), 2)

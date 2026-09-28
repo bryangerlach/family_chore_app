@@ -1,0 +1,245 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade - Star Dash</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4">
+
+    <!-- Top Navigation Header -->
+    <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Dashboard
+        </a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            <span class="font-bold text-indigo-400">⭐ Star Dash</span>
+        </div>
+    </div>
+
+    <!-- Game Arena -->
+    <div class="flex flex-col items-center my-auto w-full max-w-2xl">
+        <div class="relative bg-slate-950 border-2 border-indigo-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
+            <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            
+            <!-- Start / Game Over Overlay -->
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <h1 class="text-3xl font-extrabold text-indigo-400 mb-2">⭐ Star Dash ⭐</h1>
+                <p class="text-slate-300 text-sm mb-6 max-w-xs">Tap screen or press <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">SPACE</kbd> or <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">TAP</kbd> to jump over obstacles!</p>
+                <button onclick="startGame()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">
+                    Play Game 🚀
+                </button>
+            </div>
+        </div>
+        <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
+            <span>Score: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>High Score: <span id="highScoreDisplay" class="text-yellow-400">0</span></span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Built with HTML5 Canvas
+    </div>
+
+    <!-- Game Script -->
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('gameOverlay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+
+        // Set canvas internal resolution for crisp rendering
+        canvas.width = 800;
+        canvas.height = 400;
+
+        let gameRunning = false;
+        let score = 0;
+        let highScore = localStorage.getItem('star_dash_high') || 0;
+        highScoreDisplay.innerText = highScore;
+
+        // Player object
+        let player = {
+            x: 80,
+            y: 280,
+            width: 40,
+            height: 40,
+            vy: 0,
+            gravity: 0.8,
+            jumpPower: -13,
+            isJumping: false
+        };
+
+        let obstacles = [];
+        let gameSpeed = 5;
+        let spawnTimer = 0;
+
+        function jump() {
+            if (!gameRunning) return;
+            if (!player.isJumping) {
+                player.vy = player.jumpPower;
+                player.isJumping = true;
+                
+                // Play a cheerful sound when jumping!
+                if (typeof playSound === 'function') {
+                    playSound('correct'); // Reuses your ascending chime
+                }
+            }
+        }
+
+        // Controls
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                jump();
+            }
+        });
+        canvas.addEventListener('click', () => jump());
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+
+        function startGame() {
+            overlay.classList.add('hidden');
+            obstacles = [];
+            score = 0;
+            gameSpeed = 5;
+            spawnTimer = 0;
+            player.y = 280;
+            player.vy = 0;
+            player.isJumping = false;
+            gameRunning = true;
+            requestAnimationFrame(updateGame);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            
+            if (typeof playSound === 'function') {
+                playSound('incorrect');
+            }
+
+            let earnedBonus = false;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('star_dash_high', highScore);
+                highScoreDisplay.innerText = highScore;
+                earnedBonus = true;
+
+                // Send AJAX request to award +1 coin bonus on backend!
+                fetch("{% url 'claim_arcade_bonus' profile.id %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Update coin balance displayed in the top navbar
+                        const coinBadge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (coinBadge) {
+                            coinBadge.innerText = `🪙 ${data.new_balance} Coins`;
+                        }
+                    }
+                });
+            }
+
+            // Update overlay text
+            let titleText = "Game Over! 🎮";
+            if (earnedBonus) {
+                titleText = "New High Score! +1 🪙 🎉";
+            }
+            overlay.querySelector('h1').innerText = titleText;
+            overlay.querySelector('button').innerText = "Play Again 🔄";
+            overlay.classList.remove('hidden');
+        }
+        
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Clear canvas
+            ctx.fillStyle = '#020617'; // slate-950
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Ground Line
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 320);
+            ctx.lineTo(canvas.width, 320);
+            ctx.stroke();
+
+            // Player Physics
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            if (player.y > 280) {
+                player.y = 280;
+                player.vy = 0;
+                player.isJumping = false;
+            }
+
+            // Draw Player (Cute character box with eyes)
+            ctx.fillStyle = '#38bdf8'; // sky-400
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(player.x + 24, player.y + 8, 6, 6); // eye
+
+            // Obstacles spawning
+            spawnTimer++;
+            if (spawnTimer > Math.max(40, 100 - Math.floor(score / 10))) {
+                obstacles.push({
+                    x: canvas.width,
+                    y: 280,
+                    width: 30,
+                    height: 40,
+                    color: '#f43f5e' // rose-500
+                });
+                spawnTimer = 0;
+            }
+
+            // Update & Draw Obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= gameSpeed;
+
+                ctx.fillStyle = obs.color;
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+                // Collision detection (AABB)
+                if (
+                    player.x < obs.x + obs.width &&
+                    player.x + player.width > obs.x &&
+                    player.y < obs.y + obs.height &&
+                    player.y + player.height > obs.y
+                ) {
+                    gameOver();
+                    return;
+                }
+
+                // Remove offscreen obstacles
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                    score += 10;
+                    gameSpeed += 0.05; // Gradual difficulty increase
+                }
+            }
+
+            // Update Score Display
+            scoreDisplay.innerText = score;
+
+            requestAnimationFrame(updateGame);
+        }
+    </script>
+</body>
+</html>

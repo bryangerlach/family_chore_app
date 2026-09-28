@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade - Balloon Pop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4">
+    <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2"><span>←</span> Back to Arcade</a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">🪙 {{ coin_balance }} Coins</span>
+            <span class="font-bold text-pink-400">🎈 Balloon Pop</span>
+        </div>
+    </div>
+    <div class="flex flex-col items-center my-auto w-full max-w-2xl">
+        <div class="relative bg-slate-950 border-2 border-pink-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
+            <canvas id="balloonCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <h1 class="text-3xl font-extrabold text-pink-400 mb-2">🎈 Balloon Pop 🎈</h1>
+                <p class="text-slate-300 text-sm mb-6 max-w-xs">Tap/click floating balloons to pop them! Avoid black spiky bombs!</p>
+                <button onclick="startGame()" class="bg-pink-600 hover:bg-pink-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">Start Game 🚀</button>
+            </div>
+        </div>
+        <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
+            <span>Score: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>Time Left: <span id="timeDisplay" class="text-pink-400">30s</span></span>
+        </div>
+    </div>
+    <div class="text-xs text-slate-500 text-center">Family Chore Arcade • Pop Fast!</div>
+    <script>
+        const canvas = document.getElementById('balloonCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('gameOverlay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const timeDisplay = document.getElementById('timeDisplay');
+        canvas.width = 800; canvas.height = 400;
+        let gameRunning = false, score = 0, timeLeft = 30, balloons = [], timerInterval, spawnTimer = 0;
+
+        canvas.addEventListener('click', (e) => {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            for (let i = balloons.length - 1; i >= 0; i--) {
+                let b = balloons[i];
+                let dist = Math.hypot(clickX - b.x, clickY - b.y);
+                if (dist < b.radius) {
+                    if (b.isBomb) {
+                        score = Math.max(0, score - 15);
+                        if (typeof playSound === 'function') playSound('incorrect');
+                    } else {
+                        score += 10;
+                        if (typeof playSound === 'function') playSound('correct');
+                    }
+                    balloons.splice(i, 1);
+                    break;
+                }
+            }
+        });
+
+        function startGame() {
+            overlay.classList.add('hidden');
+            score = 0; timeLeft = 30; balloons = []; spawnTimer = 0; gameRunning = true;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timeDisplay.innerText = timeLeft + 's';
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+            requestAnimationFrame(updateGame);
+        }
+
+        function endGame() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            let highScore = localStorage.getItem('balloon_high') || 0;
+            let earnedBonus = false;
+            if (score > highScore) {
+                localStorage.setItem('balloon_high', score);
+                earnedBonus = true;
+                fetch("{% url 'claim_arcade_bonus' profile.id %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
+                }).then(res => res.json()).then(data => {
+                    if (data.status === 'success') {
+                        const badge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (badge) badge.innerText = `🪙 ${data.new_balance} Coins`;
+                    }
+                });
+            }
+            overlay.querySelector('h1').innerText = earnedBonus ? "New High Score! +1 🪙 🎉" : "Time's Up! 🎈";
+            overlay.querySelector('button').innerText = "Play Again 🔄";
+            overlay.classList.remove('hidden');
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+            ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            spawnTimer++;
+            if (spawnTimer > 25) {
+                let isBomb = Math.random() < 0.2;
+                balloons.push({
+                    x: Math.random() * (canvas.width - 80) + 40,
+                    y: canvas.height + 40,
+                    radius: 25,
+                    speed: 2 + Math.random() * 3,
+                    color: ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'][Math.floor(Math.random() * 5)],
+                    isBomb: isBomb
+                });
+                spawnTimer = 0;
+            }
+            for (let i = balloons.length - 1; i >= 0; i--) {
+                let b = balloons[i];
+                b.y -= b.speed;
+                ctx.fillStyle = b.isBomb ? '#1e293b' : b.color;
+                ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = b.isBomb ? '#f43f5e' : '#fff';
+                ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(b.isBomb ? '💣' : '🎈', b.x, b.y + 6);
+                if (b.y + b.radius < 0) balloons.splice(i, 1);
+            }
+            scoreDisplay.innerText = score;
+            requestAnimationFrame(updateGame);
+        }
+    </script>
+</body>
+</html>

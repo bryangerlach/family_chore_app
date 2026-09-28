@@ -7,6 +7,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.db import IntegrityError
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
     CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, QuizWrongAttempt, StarLedger
@@ -850,3 +852,59 @@ def delete_coin_store_item(request, item_id):
         return redirect('parent_login')
     get_object_or_404(CoinStoreItem, id=item_id).delete()
     return redirect('parent_dashboard')
+
+
+def arcade_hub(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    return render(request, 'chores/arcade_hub.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+    })
+
+def arcade_star_dash(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    return render(request, 'chores/arcade_dash.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+    })
+
+def arcade_star_catcher(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    return render(request, 'chores/arcade_catcher.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+    })
+
+@require_POST
+def arcade_bonus(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    
+    # Record +1 coin bonus for arcade high score
+    CoinLedger.objects.create(
+        child=profile,
+        amount=1,
+        reason="Arcade High Score Bonus! 🪙🕹️"
+    )
+    
+    return JsonResponse({'status': 'success', 'new_balance': profile.get_coin_balance()})
+
+def arcade_balloon_pop(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    return render(request, 'chores/arcade_balloon.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+    })
+
+def arcade_math_monster(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    return render(request, 'chores/arcade_math.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+    })
+
+def arcade_memory_match(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    return render(request, 'chores/arcade_memory.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+    })

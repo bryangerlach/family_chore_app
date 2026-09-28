@@ -1,0 +1,123 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade - Math Monster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4">
+    <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2"><span>←</span> Back to Arcade</a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">🪙 {{ coin_balance }} Coins</span>
+            <span class="font-bold text-green-400">👾 Math Monster</span>
+        </div>
+    </div>
+    <div class="flex flex-col items-center my-auto w-full max-w-2xl">
+        <div class="relative bg-slate-950 border-2 border-green-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1] flex flex-col items-center justify-center p-6 text-center">
+            <div id="gameScreen" class="w-full flex flex-col items-center">
+                <div class="text-6xl mb-3">👾</div>
+                <div id="problemBox" class="text-3xl font-extrabold text-green-400 mb-6 font-mono">2 + 3 = ?</div>
+                <div id="choicesBox" class="grid grid-cols-2 gap-4 w-full max-w-md"></div>
+            </div>
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <h1 class="text-3xl font-extrabold text-green-400 mb-2">👾 Math Monster 👾</h1>
+                <p class="text-slate-300 text-sm mb-6 max-w-xs">Solve quick math equations to feed the monster and score points!</p>
+                <button onclick="startGame()" class="bg-green-600 hover:bg-green-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">Start Game 🚀</button>
+            </div>
+        </div>
+        <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
+            <span>Score: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>Streak: <span id="streakDisplay" class="text-green-400">0</span></span>
+        </div>
+    </div>
+    <div class="text-xs text-slate-500 text-center">Family Chore Arcade • Learn & Play!</div>
+    <script>
+        const overlay = document.getElementById('gameOverlay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const streakDisplay = document.getElementById('streakDisplay');
+        const problemBox = document.getElementById('problemBox');
+        const choicesBox = document.getElementById('choicesBox');
+        let score = 0, streak = 0, correctAnswer = 0;
+
+        function nextProblem() {
+            let isAdd = Math.random() > 0.5;
+            let a, b;
+            if (isAdd) {
+                a = Math.floor(Math.random() * 6);
+                b = Math.floor(Math.random() * 5);
+                correctAnswer = a + b;
+                problemBox.innerText = `${a} + ${b} = ?`;
+            } else {
+                a = Math.floor(Math.random() * 6) + 3;
+                b = Math.floor(Math.random() * 4);
+                correctAnswer = a - b;
+                problemBox.innerText = `${a} - ${b} = ?`;
+            }
+            let choices = [correctAnswer];
+            while (choices.length < 4) {
+                let wrong = correctAnswer + Math.floor(Math.random() * 5) - 2;
+                if (wrong >= 0 && !choices.includes(wrong)) choices.push(wrong);
+            }
+            choices.sort(() => Math.random() - 0.5);
+            choicesBox.innerHTML = '';
+            choices.forEach(ans => {
+                let btn = document.createElement('button');
+                btn.className = 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-extrabold text-xl py-3 rounded-xl transition shadow';
+                btn.innerText = ans;
+                btn.onclick = () => checkAnswer(ans);
+                choicesBox.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(ans) {
+            if (ans === correctAnswer) {
+                score += 10;
+                streak++;
+                if (typeof playSound === 'function') playSound('correct');
+            } else {
+                streak = 0;
+                if (typeof playSound === 'function') playSound('incorrect');
+            }
+            scoreDisplay.innerText = score;
+            streakDisplay.innerText = streak;
+            if (streak >= 10) {
+                endGame(true);
+            } else {
+                nextProblem();
+            }
+        }
+
+        function startGame() {
+            overlay.classList.add('hidden');
+            score = 0; streak = 0;
+            scoreDisplay.innerText = score; streakDisplay.innerText = streak;
+            nextProblem();
+        }
+
+        function endGame(won) {
+            let highScore = localStorage.getItem('math_high') || 0;
+            let earnedBonus = false;
+            if (score > highScore) {
+                localStorage.setItem('math_high', score);
+                earnedBonus = true;
+                fetch("{% url 'claim_arcade_bonus' profile.id %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
+                }).then(res => res.json()).then(data => {
+                    if (data.status === 'success') {
+                        const badge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (badge) badge.innerText = `🪙 ${data.new_balance} Coins`;
+                    }
+                });
+            }
+            overlay.querySelector('h1').innerText = earnedBonus ? "Awesome! +1 🪙 🎉" : "Great Job! 👾";
+            overlay.querySelector('button').innerText = "Play Again 🔄";
+            overlay.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

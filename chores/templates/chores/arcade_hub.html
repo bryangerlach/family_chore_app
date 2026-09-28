@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between p-6">
+
+    <!-- Top Header -->
+    <div class="max-w-4xl mx-w-full w-full flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Dashboard
+        </a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            <span class="font-bold text-indigo-400">🕹️ Arcade Zone</span>
+        </div>
+    </div>
+
+    <!-- Game Selection Grid inside arcade_hub.html -->
+<div class="max-w-4xl w-full mx-auto my-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-8">
+    
+    <!-- 1. Star Dash -->
+    <a href="{% url 'arcade_star_dash' profile.id %}" class="bg-slate-800/60 border border-slate-700/80 hover:border-indigo-500 p-6 rounded-3xl shadow-xl flex flex-col justify-between transition transform hover:-translate-y-1 group">
+        <div>
+            <div class="text-4xl mb-4">⭐🏃</div>
+            <h2 class="text-xl font-extrabold text-slate-100 group-hover:text-indigo-400 transition mb-2">Star Dash</h2>
+            <p class="text-slate-400 text-xs mb-6">Jump over obstacles and rack up high scores!</p>
+        </div>
+        <span class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-center text-sm shadow transition">Play 🚀</span>
+    </a>
+
+    <!-- 2. Star Catcher -->
+    <a href="{% url 'arcade_star_catcher' profile.id %}" class="bg-slate-800/60 border border-slate-700/80 hover:border-amber-500 p-6 rounded-3xl shadow-xl flex flex-col justify-between transition transform hover:-translate-y-1 group">
+        <div>
+            <div class="text-4xl mb-4">🌟🧺</div>
+            <h2 class="text-xl font-extrabold text-slate-100 group-hover:text-amber-400 transition mb-2">Star Catcher</h2>
+            <p class="text-slate-400 text-xs mb-6">Catch falling stars while avoiding rocks!</p>
+        </div>
+        <span class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-xl text-center text-sm shadow transition">Play 🌟</span>
+    </a>
+
+    <!-- 3. Balloon Pop -->
+    <a href="{% url 'arcade_balloon_pop' profile.id %}" class="bg-slate-800/60 border border-slate-700/80 hover:border-pink-500 p-6 rounded-3xl shadow-xl flex flex-col justify-between transition transform hover:-translate-y-1 group">
+        <div>
+            <div class="text-4xl mb-4">🎈💥</div>
+            <h2 class="text-xl font-extrabold text-slate-100 group-hover:text-pink-400 transition mb-2">Balloon Pop</h2>
+            <p class="text-slate-400 text-xs mb-6">Tap floating balloons fast and dodge spikes!</p>
+        </div>
+        <span class="bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-4 rounded-xl text-center text-sm shadow transition">Play 🎈</span>
+    </a>
+
+    <!-- 4. Math Monster Crunch -->
+    <a href="{% url 'arcade_math_monster' profile.id %}" class="bg-slate-800/60 border border-slate-700/80 hover:border-green-500 p-6 rounded-3xl shadow-xl flex flex-col justify-between transition transform hover:-translate-y-1 group">
+        <div>
+            <div class="text-4xl mb-4">👾🧮</div>
+            <h2 class="text-xl font-extrabold text-slate-100 group-hover:text-green-400 transition mb-2">Math Monster</h2>
+            <p class="text-slate-400 text-xs mb-6">Solve quick math problems to feed the monster!</p>
+        </div>
+        <span class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-xl text-center text-sm shadow transition">Play 🧮</span>
+    </a>
+
+    <!-- 5. Memory Match -->
+    <a href="{% url 'arcade_memory_match' profile.id %}" class="bg-slate-800/60 border border-slate-700/80 hover:border-cyan-500 p-6 rounded-3xl shadow-xl flex flex-col justify-between transition transform hover:-translate-y-1 group">
+        <div>
+            <div class="text-4xl mb-4">🧠✨</div>
+            <h2 class="text-xl font-extrabold text-slate-100 group-hover:text-cyan-400 transition mb-2">Memory Match</h2>
+            <p class="text-slate-400 text-xs mb-6">Flip cards and match pairs in record time!</p>
+        </div>
+        <span class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-xl text-center text-sm shadow transition">Play 🧠</span>
+    </a>
+
+</div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Earn Bonus Coins on High Scores!
+    </div>
+
+</body>
+</html>

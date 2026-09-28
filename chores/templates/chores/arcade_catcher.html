@@ -1,0 +1,223 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade - Star Catcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4">
+
+    <!-- Top Navigation -->
+    <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Arcade
+        </a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            <span class="font-bold text-amber-400">🌟 Star Catcher</span>
+        </div>
+    </div>
+
+    <!-- Game Arena -->
+    <div class="flex flex-col items-center my-auto w-full max-w-2xl">
+        <div class="relative bg-slate-950 border-2 border-amber-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
+            <canvas id="catcherCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            
+            <!-- Overlay -->
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <h1 class="text-3xl font-extrabold text-amber-400 mb-2">🌟 Star Catcher 🌟</h1>
+                <p class="text-slate-300 text-sm mb-6 max-w-xs">Use <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">←</kbd> <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">→</kbd> keys or mouse/touch to move the basket and catch stars!</p>
+                <button onclick="startGame()" class="bg-amber-600 hover:bg-amber-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">
+                    Start Catcher 🚀
+                </button>
+            </div>
+        </div>
+        <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
+            <span>Score: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>High Score: <span id="highScoreDisplay" class="text-yellow-400">0</span></span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Catch Stars, Avoid Rocks!
+    </div>
+
+    <!-- Catcher Game Script -->
+    <script>
+        const canvas = document.getElementById('catcherCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('gameOverlay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+
+        canvas.width = 800;
+        canvas.height = 400;
+
+        let gameRunning = false;
+        let score = 0;
+        let highScore = localStorage.getItem('star_catcher_high') || 0;
+        highScoreDisplay.innerText = highScore;
+
+        // Basket Player
+        let basket = {
+            x: 350,
+            y: 330,
+            width: 100,
+            height: 30,
+            speed: 8,
+            dx: 0
+        };
+
+        let items = [];
+        let spawnTimer = 0;
+        let gameSpeed = 3;
+
+        // Controls
+        let keys = {};
+        window.addEventListener('keydown', (e) => keys[e.code] = true);
+        window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            let mouseX = (e.clientX - rect.left) * scaleX;
+            basket.x = mouseX - basket.width / 2;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            let touchX = (e.touches[0].clientX - rect.left) * scaleX;
+            basket.x = touchX - basket.width / 2;
+        });
+
+        function startGame() {
+            overlay.classList.add('hidden');
+            items = [];
+            score = 0;
+            gameSpeed = 3;
+            spawnTimer = 0;
+            basket.x = 350;
+            gameRunning = true;
+            requestAnimationFrame(updateGame);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            if (typeof playSound === 'function') {
+                playSound('incorrect');
+            }
+
+            let earnedBonus = false;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('star_catcher_high', highScore);
+                highScoreDisplay.innerText = highScore;
+                earnedBonus = true;
+
+                // Award bonus coin
+                fetch("{% url 'claim_arcade_bonus' profile.id %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
+                }).then(res => res.json()).then(data => {
+                    if (data.status === 'success') {
+                        const badge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (badge) badge.innerText = `🪙 ${data.new_balance} Coins`;
+                    }
+                });
+            }
+
+            overlay.querySelector('h1').innerText = earnedBonus ? "New High Score! +1 🪙 🎉" : "Ouch! Hit a Rock! 🪨";
+            overlay.querySelector('button').innerText = "Play Again 🔄";
+            overlay.classList.remove('hidden');
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Keyboard movement
+            if (keys['ArrowLeft'] || keys['KeyA']) basket.x -= basket.speed;
+            if (keys['ArrowRight'] || keys['KeyD']) basket.x += basket.speed;
+
+            // Boundaries
+            if (basket.x < 0) basket.x = 0;
+            if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
+
+            // Clear screen
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Basket
+            ctx.fillStyle = '#f59e0b'; // amber-500
+            ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
+            ctx.fillStyle = '#d97706';
+            ctx.fillRect(basket.x + 10, basket.y + 5, basket.width - 20, 5);
+
+            // Spawn items (Stars vs Rocks)
+            spawnTimer++;
+            if (spawnTimer > 45) {
+                let isRock = Math.random() < 0.25; // 25% chance of rock
+                items.push({
+                    x: Math.random() * (canvas.width - 30),
+                    y: -30,
+                    size: 30,
+                    speed: gameSpeed + Math.random() * 2,
+                    isRock: isRock
+                });
+                spawnTimer = 0;
+            }
+
+            // Update & Draw Items
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                item.y += item.speed;
+
+                // Draw Item
+                if (item.isRock) {
+                    ctx.fillStyle = '#64748b'; // slate-500 (Rock)
+                    ctx.beginPath();
+                    ctx.arc(item.x + 15, item.y + 15, 15, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = '#fde047'; // yellow-300 (Star)
+                    ctx.font = '28px sans-serif';
+                    ctx.fillText('⭐', item.x, item.y + 25);
+                }
+
+                // Collision detection with basket
+                if (
+                    item.x < basket.x + basket.width &&
+                    item.x + 30 > basket.x &&
+                    item.y + 30 > basket.y &&
+                    item.y < basket.y + basket.height
+                ) {
+                    if (item.isRock) {
+                        gameOver();
+                        return;
+                    } else {
+                        score += 10;
+                        gameSpeed += 0.05;
+                        if (typeof playSound === 'function') playSound('correct');
+                        items.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                // Remove if missed off bottom
+                if (item.y > canvas.height) {
+                    items.splice(i, 1);
+                }
+            }
+
+            scoreDisplay.innerText = score;
+            requestAnimationFrame(updateGame);
+        }
+    </script>
+</body>
+</html>

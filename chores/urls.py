@@ -61,6 +61,14 @@ urlpatterns = [
     # Coin Store Items Management
     path('parent/add-coin-item/', views.add_coin_store_item, name='add_coin_store_item'),
     path('parent/delete-coin-item/<int:item_id>/', views.delete_coin_store_item, name='delete_coin_store_item'),
+
+    path('child/<int:profile_id>/arcade/', views.arcade_hub, name='arcade_hub'),
+    path('child/<int:profile_id>/arcade/star-dash/', views.arcade_star_dash, name='arcade_star_dash'),
+    path('child/<int:profile_id>/arcade/star-catcher/', views.arcade_star_catcher, name='arcade_star_catcher'),
+    path('child/<int:profile_id>/arcade/bonus/', views.arcade_bonus, name='claim_arcade_bonus'),
+    path('child/<int:profile_id>/arcade/balloon-pop/', views.arcade_balloon_pop, name='arcade_balloon_pop'),
+    path('child/<int:profile_id>/arcade/math-monster/', views.arcade_math_monster, name='arcade_math_monster'),
+    path('child/<int:profile_id>/arcade/memory-match/', views.arcade_memory_match, name='arcade_memory_match'),
 ]
 
 if settings.DEBUG:
