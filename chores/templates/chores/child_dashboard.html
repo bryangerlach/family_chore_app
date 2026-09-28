@@ -142,7 +142,9 @@
                 <a href="{% url 'coin_store' profile.id %}" onclick="playAndNavigate(event, 'coin', this.href)" class="bg-yellow-600/80 hover:bg-yellow-600 border border-yellow-500 p-4 rounded-2xl text-center font-bold text-sm shadow-xl transition flex items-center justify-center gap-2 text-slate-950">
                     <span>🪙 Coin Store</span>
                 </a>
-                <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-800 border border-slate-700 hover:border-indigo-500/50 p-4 rounded-2xl flex items-center justify-between transition group">
+                
+                <!-- Arcade Button spanning both columns -->
+                <a href="{% url 'arcade_hub' profile.id %}" class="col-span-2 bg-slate-800 border border-slate-700 hover:border-indigo-500/50 p-4 rounded-2xl flex items-center justify-between transition group">
                     <div class="flex items-center gap-3">
                         <span class="text-3xl">🕹️</span>
                         <div>
