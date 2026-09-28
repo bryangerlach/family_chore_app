@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Arcade Leaderboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-start p-6">
+
+    <!-- Top Header -->
+    <div class="max-w-4xl w-full mx-auto flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'parent_dashboard' %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Parent Dashboard
+        </a>
+        <div class="flex items-center gap-3">
+            <span class="font-bold text-amber-400">🏆 Family Arcade Leaderboard</span>
+        </div>
+    </div>
+
+    <!-- Leaderboard Content -->
+    <div class="max-w-4xl w-full mx-auto my-4 py-6 space-y-6">
+        <h1 class="text-2xl font-extrabold text-slate-100 text-center">⭐ Family High Score Records by Game ⭐</h1>
+        
+        {% for game in leaderboard_data %}
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+                <div class="flex items-center gap-3 mb-4 pb-3 border-b border-slate-700/60">
+                    <span class="text-2xl">🎮</span>
+                    <h2 class="text-lg font-extrabold text-slate-100">{{ game.game_title }}</h2>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {% for item in game.child_scores %}
+                        <div class="bg-slate-900/80 border border-slate-700/60 p-4 rounded-xl flex flex-col justify-between">
+                            <span class="font-bold text-indigo-400 text-sm mb-2">{{ item.child.name }}</span>
+                            <div class="flex items-baseline justify-between">
+                                <span class="text-xs text-slate-400">High Score:</span>
+                                <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 font-extrabold px-3 py-1 rounded-lg text-base">
+                                    {{ item.score }}
+                                </span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="p-12 text-center text-slate-400 bg-slate-800/60 rounded-2xl border border-slate-700/80">
+                <span class="text-4xl block mb-2">🕹️</span>
+                No high scores recorded across the family yet!
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Multi-Device Database Sync
+    </div>
+
+</body>
+</html>

@@ -41,7 +41,9 @@
         const streakDisplay = document.getElementById('streakDisplay');
         const problemBox = document.getElementById('problemBox');
         const choicesBox = document.getElementById('choicesBox');
+        
         let score = 0, streak = 0, correctAnswer = 0;
+        let highScore = {{ high_score|default:0 }};
 
         function nextProblem() {
             let isAdd = Math.random() > 0.5;
@@ -99,22 +101,38 @@
         }
 
         function endGame(won) {
-            let highScore = localStorage.getItem('math_high') || 0;
-            let earnedBonus = false;
-            if (score > highScore) {
-                localStorage.setItem('math_high', score);
-                earnedBonus = true;
-                fetch("{% url 'claim_arcade_bonus' profile.id %}", {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
-                }).then(res => res.json()).then(data => {
-                    if (data.status === 'success') {
-                        const badge = document.querySelector('span.bg-yellow-500\\/20');
-                        if (badge) badge.innerText = `🪙 ${data.new_balance} Coins`;
+            // Submit score to database via AJAX
+            fetch("{% url 'submit_arcade_score' profile.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    game_key: 'math_monster',
+                    game_title: 'Math Monster',
+                    score: score,
+                    is_lower_better: false
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    highScore = data.high_score;
+
+                    if (data.new_balance !== undefined) {
+                        const coinBadge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (coinBadge) coinBadge.innerText = `🪙 ${data.new_balance} Coins`;
                     }
-                });
-            }
-            overlay.querySelector('h1').innerText = earnedBonus ? "Awesome! +1 🪙 🎉" : "Great Job! 👾";
+
+                    if (data.earned_bonus) {
+                        overlay.querySelector('h1').innerText = "Awesome! New High Score! +1 🪙 🎉";
+                    } else {
+                        overlay.querySelector('h1').innerText = "Great Job! 👾";
+                    }
+                }
+            });
+
             overlay.querySelector('button').innerText = "Play Again 🔄";
             overlay.classList.remove('hidden');
         }

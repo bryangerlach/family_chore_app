@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade High Scores - {{ profile.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-start p-6">
+
+    <!-- Top Header -->
+    <div class="max-w-2xl w-full mx-auto flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Arcade
+        </a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            <span class="font-bold text-amber-400">🏆 Trophy Room</span>
+        </div>
+    </div>
+
+    <!-- Scores List -->
+    <div class="max-w-2xl w-full mx-auto my-4 py-6">
+        <h1 class="text-2xl font-extrabold text-slate-100 mb-6 text-center">⭐ {{ profile.name }}'s High Scores ⭐</h1>
+        
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl overflow-hidden shadow-xl divide-y divide-slate-700/50">
+            {% for item in scores %}
+                <div class="p-4 flex items-center justify-between hover:bg-slate-800/90 transition">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">🎮</span>
+                        <div>
+                            <span class="font-bold text-slate-100 block">{{ item.game_title }}</span>
+                            <span class="text-xs text-slate-400">Last updated: {{ item.updated_at|date:"M j, Y" }}</span>
+                        </div>
+                    </div>
+                    <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 font-extrabold px-4 py-1.5 rounded-xl text-sm">
+                        Score: {{ item.score }}
+                    </span>
+                </div>
+            {% empty %}
+                <div class="p-8 text-center text-slate-400">
+                    <span class="text-4xl block mb-2">🕹️</span>
+                    No high scores recorded yet! Jump into the arcade and set your first record.
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Database Trophy Room
+    </div>
+
+</body>
+</html>

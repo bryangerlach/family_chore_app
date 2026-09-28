@@ -6,10 +6,10 @@
     <title>Arcade Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between p-6">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-start p-6">
 
     <!-- Top Header -->
-    <div class="max-w-4xl mx-w-full w-full flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+    <div class="max-w-4xl mx-w-full w-full mx-auto flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
         <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
             <span>←</span> Back to Dashboard
         </a>
@@ -22,8 +22,8 @@
     </div>
 
     <!-- Game Selection Grid inside arcade_hub.html -->
-<div class="max-w-4xl w-full mx-auto my-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-8">
-    
+<div class="max-w-4xl w-full mx-auto my-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-8">
+
     <!-- 1. Star Dash -->
     <a href="{% url 'arcade_star_dash' profile.id %}" class="bg-slate-800/60 border border-slate-700/80 hover:border-indigo-500 p-6 rounded-3xl shadow-xl flex flex-col justify-between transition transform hover:-translate-y-1 group">
         <div>

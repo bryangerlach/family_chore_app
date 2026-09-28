@@ -27,6 +27,7 @@
         </div>
         <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
             <span>Moves: <span id="movesDisplay" class="text-slate-100">0</span></span>
+            <span>Best Moves: <span id="bestMovesDisplay" class="text-yellow-400">{% if high_score > 0 and high_score < 999 %}{{ high_score }}{% else %}---{% endif %}</span></span>
             <span>Pairs Found: <span id="pairsDisplay" class="text-cyan-400">0 / 6</span></span>
         </div>
     </div>
@@ -35,14 +36,18 @@
         const overlay = document.getElementById('gameOverlay');
         const movesDisplay = document.getElementById('movesDisplay');
         const pairsDisplay = document.getElementById('pairsDisplay');
+        const bestMovesDisplay = document.getElementById('bestMovesDisplay');
         const gridBox = document.getElementById('gridBox');
+        
         const icons = ['⭐', '🪙', '🚀', '🍎', '🐱', '⚽'];
         let cards = [], flipped = [], matchedPairs = 0, moves = 0, lockBoard = false;
+        let bestMoves = {{ high_score|default:999 }};
 
         function startGame() {
             overlay.classList.add('hidden');
             moves = 0; matchedPairs = 0; flipped = [];
-            movesDisplay.innerText = moves; pairsDisplay.innerText = `0 / 6`;
+            movesDisplay.innerText = moves; 
+            pairsDisplay.innerText = `0 / 6`;
             cards = [...icons, ...icons].sort(() => Math.random() - 0.5);
             gridBox.innerHTML = '';
             cards.forEach((icon, index) => {
@@ -87,22 +92,39 @@
         }
 
         function endGame() {
-            let bestMoves = localStorage.getItem('memory_best') || 999;
-            let earnedBonus = false;
-            if (moves < bestMoves) {
-                localStorage.setItem('memory_best', moves);
-                earnedBonus = true;
-                fetch("{% url 'claim_arcade_bonus' profile.id %}", {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
-                }).then(res => res.json()).then(data => {
-                    if (data.status === 'success') {
-                        const badge = document.querySelector('span.bg-yellow-500\\/20');
-                        if (badge) badge.innerText = `🪙 ${data.new_balance} Coins`;
+            // Submit score to database via AJAX (is_lower_better: true for memory match)
+            fetch("{% url 'submit_arcade_score' profile.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    game_key: 'memory_match',
+                    game_title: 'Memory Match',
+                    score: moves,
+                    is_lower_better: true
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    bestMoves = data.high_score;
+                    bestMovesDisplay.innerText = bestMoves;
+
+                    if (data.new_balance !== undefined) {
+                        const coinBadge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (coinBadge) coinBadge.innerText = `🪙 ${data.new_balance} Coins`;
                     }
-                });
-            }
-            overlay.querySelector('h1').innerText = earnedBonus ? "New Best Score! +1 🪙 🎉" : "Puzzle Completed! 🧠";
+
+                    if (data.earned_bonus) {
+                        overlay.querySelector('h1').innerText = "New Best Score! +1 🪙 🎉";
+                    } else {
+                        overlay.querySelector('h1').innerText = "Puzzle Completed! 🧠";
+                    }
+                }
+            });
+
             overlay.querySelector('button').innerText = "Play Again 🔄";
             overlay.classList.remove('hidden');
         }

@@ -27,29 +27,37 @@
         </div>
         <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
             <span>Score: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>High Score: <span id="highScoreDisplay" class="text-yellow-400">{{ high_score|default:0 }}</span></span>
             <span>Time Left: <span id="timeDisplay" class="text-pink-400">30s</span></span>
         </div>
     </div>
-    <div class="text-xs text-slate-500 text-center">Family Chore Arcade • Pop Fast!</div>
+    <div class="text-xs text-slate-500 text-center">Family Chore Arcade • Database Trophy Room</div>
     <script>
         const canvas = document.getElementById('balloonCanvas');
         const ctx = canvas.getContext('2d');
         const overlay = document.getElementById('gameOverlay');
         const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
         const timeDisplay = document.getElementById('timeDisplay');
-        canvas.width = 800; canvas.height = 400;
-        let gameRunning = false, score = 0, timeLeft = 30, balloons = [], timerInterval, spawnTimer = 0;
+        
+        canvas.width = 800; 
+        canvas.height = 400;
 
-        canvas.addEventListener('click', (e) => {
+        let gameRunning = false, score = 0, timeLeft = 30, balloons = [], timerInterval, spawnTimer = 0;
+        let highScore = {{ high_score|default:0 }};
+
+        // Handle both click and touch events smoothly for tablets
+        function handlePointerInput(clientX, clientY) {
             if (!gameRunning) return;
             const rect = canvas.getBoundingClientRect();
-            const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
-            const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            const clickX = (clientX - rect.left) * (canvas.width / rect.width);
+            const clickY = (clientY - rect.top) * (canvas.height / rect.height);
             
             for (let i = balloons.length - 1; i >= 0; i--) {
                 let b = balloons[i];
                 let dist = Math.hypot(clickX - b.x, clickY - b.y);
-                if (dist < b.radius) {
+                // Larger generous hit area (+15px leeway for easy tablet tapping)
+                if (dist < b.radius + 15) {
                     if (b.isBomb) {
                         score = Math.max(0, score - 15);
                         if (typeof playSound === 'function') playSound('incorrect');
@@ -61,7 +69,15 @@
                     break;
                 }
             }
-        });
+        }
+
+        canvas.addEventListener('click', (e) => handlePointerInput(e.clientX, e.clientY));
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (e.touches.length > 0) {
+                handlePointerInput(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
 
         function startGame() {
             overlay.classList.add('hidden');
@@ -78,50 +94,77 @@
         function endGame() {
             gameRunning = false;
             clearInterval(timerInterval);
-            let highScore = localStorage.getItem('balloon_high') || 0;
-            let earnedBonus = false;
-            if (score > highScore) {
-                localStorage.setItem('balloon_high', score);
-                earnedBonus = true;
-                fetch("{% url 'claim_arcade_bonus' profile.id %}", {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
-                }).then(res => res.json()).then(data => {
-                    if (data.status === 'success') {
+
+            // Submit score to database via AJAX
+            fetch("{% url 'submit_arcade_score' profile.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    game_key: 'balloon_pop',
+                    game_title: 'Balloon Pop',
+                    score: score,
+                    is_lower_better: false
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    highScore = data.high_score;
+                    highScoreDisplay.innerText = highScore;
+
+                    if (data.new_balance !== undefined) {
                         const badge = document.querySelector('span.bg-yellow-500\\/20');
                         if (badge) badge.innerText = `🪙 ${data.new_balance} Coins`;
                     }
-                });
-            }
-            overlay.querySelector('h1').innerText = earnedBonus ? "New High Score! +1 🪙 🎉" : "Time's Up! 🎈";
+
+                    if (data.earned_bonus) {
+                        overlay.querySelector('h1').innerText = "New High Score! +1 🪙 🎉";
+                    } else {
+                        overlay.querySelector('h1').innerText = "Time's Up! 🎈";
+                    }
+                }
+            });
+
             overlay.querySelector('button').innerText = "Play Again 🔄";
             overlay.classList.remove('hidden');
         }
 
         function updateGame() {
             if (!gameRunning) return;
-            ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#020617'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
             spawnTimer++;
-            if (spawnTimer > 25) {
+            if (spawnTimer > 35) {
                 let isBomb = Math.random() < 0.2;
                 balloons.push({
-                    x: Math.random() * (canvas.width - 80) + 40,
-                    y: canvas.height + 40,
-                    radius: 25,
-                    speed: 2 + Math.random() * 3,
+                    x: Math.random() * (canvas.width - 120) + 60,
+                    y: canvas.height + 60,
+                    radius: 42, // Much bigger balloons for easy tablet tapping
+                    speed: 1.8 + Math.random() * 2.5,
                     color: ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'][Math.floor(Math.random() * 5)],
                     isBomb: isBomb
                 });
                 spawnTimer = 0;
             }
+
             for (let i = balloons.length - 1; i >= 0; i--) {
                 let b = balloons[i];
                 b.y -= b.speed;
+                
                 ctx.fillStyle = b.isBomb ? '#1e293b' : b.color;
-                ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); 
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); 
+                ctx.fill();
+                
                 ctx.fillStyle = b.isBomb ? '#f43f5e' : '#fff';
-                ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText(b.isBomb ? '💣' : '🎈', b.x, b.y + 6);
+                ctx.font = '26px sans-serif'; 
+                ctx.textAlign = 'center';
+                ctx.fillText(b.isBomb ? '💣' : '🎈', b.x, b.y + 9);
+                
                 if (b.y + b.radius < 0) balloons.splice(i, 1);
             }
             scoreDisplay.innerText = score;

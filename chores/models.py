@@ -178,3 +178,17 @@ class QuizWrongAttempt(models.Model):
     question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE)
     option_chosen = models.CharField(max_length=1, blank=True, null=True)  # Tracks 'A', 'B', 'C', or 'D'
     timestamp = models.DateTimeField(auto_now_add=True)
+
+
+class ArcadeHighScore(models.Model):
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='arcade_high_scores')
+    game_key = models.CharField(max_length=50)  # e.g., 'star_dash', 'star_catcher', etc.
+    game_title = models.CharField(max_length=100) # e.g., 'Star Dash'
+    score = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('child', 'game_key')
+
+    def __str__(self):
+        return f"{self.child.name} - {self.game_title}: {self.score}"

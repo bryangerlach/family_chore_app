@@ -3,6 +3,8 @@ import csv
 import io
 import urllib.request
 import random
+import json
+from collections import defaultdict
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -11,7 +13,8 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
-    CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, QuizWrongAttempt, StarLedger
+    CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, 
+    QuizWrongAttempt, StarLedger, ArcadeHighScore
 )
 
 
@@ -863,16 +866,20 @@ def arcade_hub(request, profile_id):
 
 def arcade_star_dash(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='star_dash').first()
     return render(request, 'chores/arcade_dash.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 0,
     })
 
 def arcade_star_catcher(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='star_catcher').first()
     return render(request, 'chores/arcade_catcher.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 0,
     })
 
 @require_POST
@@ -890,21 +897,126 @@ def arcade_bonus(request, profile_id):
 
 def arcade_balloon_pop(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='balloon_pop').first()
     return render(request, 'chores/arcade_balloon.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 0,
     })
 
 def arcade_math_monster(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='math_monster').first()
     return render(request, 'chores/arcade_math.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 0,
     })
 
 def arcade_memory_match(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='memory_match').first()
+    # For memory match, lower moves is better! Default to 999 if no record exists
     return render(request, 'chores/arcade_memory.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 999,
+    })
+
+@require_POST
+def submit_arcade_score(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    try:
+        data = json.loads(request.body)
+        game_key = data.get('game_key')
+        game_title = data.get('game_title', 'Game')
+        score = int(data.get('score', 0))
+        is_lower_better = data.get('is_lower_better', False) # e.g., for Memory Match moves
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid payload'}, status=400)
+
+    obj, created = ArcadeHighScore.objects.get_or_create(
+        child=profile,
+        game_key=game_key,
+        defaults={'game_title': game_title, 'score': score}
+    )
+
+    new_record = False
+    if not created:
+        if is_lower_better:
+            if score < obj.score: # fewer moves is better
+                obj.score = score
+                obj.game_title = game_title
+                obj.save()
+                new_record = True
+        else:
+            if score > obj.score: # higher score is better
+                obj.score = score
+                obj.game_title = game_title
+                obj.save()
+                new_record = True
+    else:
+        new_record = True
+
+    earned_bonus = False
+    if new_record:
+        CoinLedger.objects.create(
+            child=profile,
+            amount=1,
+            reason=f"Arcade High Score Bonus ({game_title})! 🪙🕹️"
+        )
+        earned_bonus = True
+
+    return JsonResponse({
+        'status': 'success',
+        'new_record': new_record,
+        'earned_bonus': earned_bonus,
+        'high_score': obj.score,
+        'new_balance': profile.get_coin_balance()
+    })
+
+def arcade_high_scores_view(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    scores = ArcadeHighScore.objects.filter(child=profile).order_by('-updated_at')
+    
+    return render(request, 'chores/arcade_scores.html', {
+        'profile': profile,
+        'scores': scores,
+        'coin_balance': profile.get_coin_balance(),
+    })
+
+def parent_arcade_leaderboard(request):
+    children = Profile.objects.filter(user_type='child')
+    
+    # Define all standard arcade games
+    games = [
+        ('star_dash', 'Star Dash'),
+        ('star_catcher', 'Star Catcher'),
+        ('balloon_pop', 'Balloon Pop'),
+        ('math_monster', 'Math Monster'),
+        ('memory_match', 'Memory Match (Fewest Moves)')
+    ]
+    
+    # Fetch all database high scores
+    all_scores = ArcadeHighScore.objects.select_related('child').all()
+    
+    # Map (game_key, child_id) -> score object
+    score_map = {(s.game_key, s.child_id): s for s in all_scores}
+    
+    # Build a structured list of games with each child's score
+    leaderboard_data = []
+    for game_key, game_title in games:
+        row = {'game_key': game_key, 'game_title': game_title, 'child_scores': []}
+        for child in children:
+            score_obj = score_map.get((game_key, child.id))
+            row['child_scores'].append({
+                'child': child,
+                'score': score_obj.score if score_obj else ('---' if game_key != 'memory_match' else 999),
+                'updated_at': score_obj.updated_at if score_obj else None
+            })
+        leaderboard_data.append(row)
+
+    return render(request, 'chores/parent_leaderboard.html', {
+        'children': children,
+        'leaderboard_data': leaderboard_data,
     })

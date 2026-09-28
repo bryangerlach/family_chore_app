@@ -143,19 +143,28 @@
                     <span>🪙 Coin Store</span>
                 </a>
                 
-                <!-- Arcade Button spanning both columns -->
-                <a href="{% url 'arcade_hub' profile.id %}" class="col-span-2 bg-slate-800 border border-slate-700 hover:border-indigo-500/50 p-4 rounded-2xl flex items-center justify-between transition group">
-                    <div class="flex items-center gap-3">
-                        <span class="text-3xl">🕹️</span>
-                        <div>
-                            <span class="font-bold text-slate-100 block group-hover:text-indigo-400 transition">Arcade Zone</span>
-                            <span class="text-xs text-slate-400">Play mini-games and beat high scores</span>
+                <!-- Arcade Zone Card spanning both columns -->
+                <div class="col-span-2 bg-slate-800 border border-slate-700/80 p-5 rounded-3xl shadow-xl flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">🕹️</span>
+                            <div>
+                                <h3 class="font-extrabold text-slate-100 text-lg">Arcade Zone</h3>
+                                <p class="text-xs text-slate-400">Play mini-games and earn bonus coins!</p>
+                            </div>
                         </div>
+                        <a href="{% url 'arcade_hub' profile.id %}" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-sm shadow transition">
+                            Play Arcade 🚀
+                        </a>
                     </div>
-                    <span class="bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs px-3 py-1.5 rounded-xl">
-                        Play 🚀
-                    </span>
-                </a>
+                    <!-- Link to Trophy Room -->
+                    <div class="border-t border-slate-700/60 pt-3 flex justify-between items-center text-xs">
+                        <span class="text-slate-400">View personal high score records across all devices</span>
+                        <a href="{% url 'arcade_high_scores' profile.id %}" class="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1">
+                            🏆 View Trophy Room →
+                        </a>
+                    </div>
+                </div>
             </div>
 
         <!-- Task List Cards -->
