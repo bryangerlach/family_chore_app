@@ -72,6 +72,10 @@ urlpatterns = [
     path('child/<int:profile_id>/arcade/submit-score/', views.submit_arcade_score, name='submit_arcade_score'),
     path('child/<int:profile_id>/arcade/scores/', views.arcade_high_scores_view, name='arcade_high_scores'),
     path('parent/arcade/leaderboard/', views.parent_arcade_leaderboard, name='parent_arcade_leaderboard'),
+    path('child/<int:profile_id>/pet/', views.pet_room_view, name='pet_room'),
+    path('child/<int:profile_id>/pet/action/feed/', views.pet_action_feed, name='pet_action_feed'),
+    path('child/<int:profile_id>/pet/action/clean/', views.pet_action_clean, name='pet_action_clean'),
+    path('child/<int:profile_id>/arcade/number-runner/', views.arcade_number_runner, name='arcade_number_runner'),
 ]
 
 if settings.DEBUG:

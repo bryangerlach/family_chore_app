@@ -192,3 +192,64 @@ class ArcadeHighScore(models.Model):
 
     def __str__(self):
         return f"{self.child.name} - {self.game_title}: {self.score}"
+
+class VirtualPet(models.Model):
+    child = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='pet')
+    name = models.CharField(max_length=50, default="StarBuddy")
+    species = models.CharField(max_length=30, default="Pixel Critter")
+    hunger = models.IntegerField(default=100)      # 0 to 100
+    happiness = models.IntegerField(default=100)   # 0 to 100
+    poop_count = models.IntegerField(default=0)    # Number of poops on screen
+    level = models.IntegerField(default=1)
+    experience = models.IntegerField(default=0)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} (Lvl {self.level})"
+
+    def feed(self):
+        """Restores hunger and awards XP."""
+        self.hunger = min(100, self.hunger + 25)
+        self.experience += 10
+        if self.experience >= self.level * 50:
+            self.level += 1
+            self.experience = 0
+        self.save()
+
+    def play(self):
+        """Boosts happiness."""
+        self.happiness = min(100, self.happiness + 20)
+        self.experience += 15
+        if self.experience >= self.level * 50:
+            self.level += 1
+            self.experience = 0
+        self.save()
+
+    def get_species_name(self):
+        """Evolves pet species based on level milestones!"""
+        if self.level >= 5:
+            return "Cosmic Phoenix 🦅"
+        elif self.level >= 3:
+            return "Star Dragon 🐲"
+        elif self.level >= 2:
+            return "Space Sprite 👾"
+        return "Pixel Critter 🐣"
+
+    def get_emoji(self):
+        """Returns the avatar emoji based on level."""
+        if self.level >= 5:
+            return "🦅"
+        elif self.level >= 3:
+            return "🐲"
+        elif self.level >= 2:
+            return "👾"
+        return "🐣"
+
+    def add_xp(self, amount):
+        """Handles leveling up and threshold checks."""
+        self.experience += amount
+        required_xp = self.level * 50
+        if self.experience >= required_xp:
+            self.level += 1
+            self.experience -= required_xp
+        self.save()

@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
     CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, 
-    QuizWrongAttempt, StarLedger, ArcadeHighScore
+    QuizWrongAttempt, StarLedger, ArcadeHighScore, VirtualPet
 )
 
 
@@ -1019,4 +1019,65 @@ def parent_arcade_leaderboard(request):
     return render(request, 'chores/parent_leaderboard.html', {
         'children': children,
         'leaderboard_data': leaderboard_data,
+    })
+
+def pet_room_view(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    pet, created = VirtualPet.objects.get_or_create(child=profile, defaults={'name': 'StarBuddy'})
+    
+    return render(request, 'chores/pet_room.html', {
+        'profile': profile,
+        'pet': pet,
+        'coin_balance': profile.get_coin_balance(),
+    })
+
+@require_POST
+def pet_action_feed(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    pet = get_object_or_404(VirtualPet, child=profile)
+    
+    pet.hunger = min(100, pet.hunger + 30)
+    pet.add_xp(15)
+    pet.save()
+    
+    return JsonResponse({
+        'status': 'success',
+        'hunger': pet.hunger,
+        'happiness': pet.happiness,
+        'poop_count': pet.poop_count,
+        'level': pet.level,
+        'experience': pet.experience,
+        'species': pet.get_species_name(),
+        'emoji': pet.get_emoji()
+    })
+
+@require_POST
+def pet_action_clean(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    pet = get_object_or_404(VirtualPet, child=profile)
+    
+    pet.poop_count = 0
+    pet.happiness = min(100, pet.happiness + 20)
+    pet.add_xp(10)
+    pet.save()
+    
+    return JsonResponse({
+        'status': 'success',
+        'happiness': pet.happiness,
+        'poop_count': pet.poop_count,
+        'level': pet.level,
+        'experience': pet.experience
+    })
+
+def arcade_number_runner(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    
+    # Fetch high score from database
+    high_score_obj = ArcadeHighScore.objects.filter(child=profile, game_key='number_runner').first()
+    high_score = high_score_obj.score if high_score_obj else 0
+    
+    return render(request, 'chores/arcade_number_runner.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+        'high_score': high_score,
     })

@@ -1,0 +1,190 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Pet - {{ pet.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between p-6">
+
+    <!-- Top Header -->
+    <div class="max-w-2xl w-full mx-auto flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Dashboard
+        </a>
+        <div class="flex items-center gap-4">
+            <span class="font-bold text-pink-400">🐾 {{ pet.name }}'s Room</span>
+        </div>
+    </div>
+
+    <!-- Canvas Room & Controls Container -->
+    <div class="max-w-2xl w-full mx-auto my-auto py-6 flex flex-col items-center">
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-3xl p-6 shadow-2xl w-full flex flex-col items-center">
+            
+            <!-- Stats Header -->
+            <div class="w-full flex justify-between items-center mb-4 px-2 text-xs font-bold text-slate-300">
+                <span>⭐ Level <span id="lblLevel">{{ pet.level }}</span> (<span id="lblSpecies">{{ pet.get_species_name }}</span>)</span>
+                <span class="text-emerald-400">🍎 Hunger: <span id="lblHunger">{{ pet.hunger }}</span>%</span>
+                <span class="text-pink-400">💖 Happy: <span id="lblHappy">{{ pet.happiness }}</span>%</span>
+                <span class="text-amber-500">💩 Poops: <span id="lblPoop">{{ pet.poop_count }}</span></span>
+            </div>
+
+            <!-- HTML5 Tamagotchi Canvas -->
+            <div class="relative bg-slate-950 border-2 border-slate-700 rounded-2xl overflow-hidden shadow-inner w-full aspect-[2/1]">
+                <canvas id="petCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2 text-center">Tip: Click your pet to make it jump and squeak! Feed it to earn XP and evolve.</p>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-3 gap-3 w-full mt-6">
+                <button onclick="feedPet()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-4 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+                    <span>🍎</span> Feed Free
+                </button>
+                <button onclick="playWithPet()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3 px-4 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+                    <span>⚽</span> Play
+                </button>
+                <button onclick="cleanPoop()" class="bg-amber-600 hover:bg-amber-500 text-white font-extrabold py-3 px-4 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+                    <span>🧹</span> Clean Poop
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Tamagotchi Evolution Companion
+    </div>
+
+    <script>
+        const canvas = document.getElementById('petCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 400;
+
+        let pet = {
+            x: 400,
+            y: 300,
+            vx: 1.5,
+            state: 'wandering',
+            hunger: {{ pet.hunger }},
+            happiness: {{ pet.happiness }},
+            poopCount: {{ pet.poop_count }},
+            level: {{ pet.level }},
+            emoji: '{{ pet.get_emoji }}',
+            species: '{{ pet.get_species_name }}'
+        };
+
+        let poops = [];
+        for(let i = 0; i < pet.poopCount; i++) {
+            poops.push({ x: 150 + (i * 120), y: 330 });
+        }
+
+        // Random Spontaneous Poop Timer (Every 30-45 seconds)
+        setInterval(() => {
+            if (poops.length < 5) {
+                poops.push({ x: Math.random() * 600 + 100, y: 330 });
+                pet.poopCount = poops.length;
+                document.getElementById('lblPoop').innerText = pet.poopCount;
+                if (typeof playSound === 'function') playSound('incorrect');
+            }
+        }, 35000);
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            if (Math.hypot(clickX - pet.x, clickY - pet.y) < 60) {
+                pet.state = 'jumping';
+                if (typeof playSound === 'function') playSound('correct');
+                setTimeout(() => pet.state = 'wandering', 600);
+            }
+        });
+
+        function feedPet() {
+            fetch("{% url 'pet_action_feed' profile.id %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (typeof playSound === 'function') playSound('correct');
+                    pet.hunger = data.hunger;
+                    pet.happiness = data.happiness;
+                    pet.level = data.level;
+                    pet.emoji = data.emoji;
+                    pet.species = data.species;
+                    
+                    document.getElementById('lblHunger').innerText = pet.hunger;
+                    document.getElementById('lblHappy').innerText = pet.happiness;
+                    document.getElementById('lblLevel').innerText = pet.level;
+                    document.getElementById('lblSpecies').innerText = pet.species;
+                }
+            });
+        }
+
+        function cleanPoop() {
+            fetch("{% url 'pet_action_clean' profile.id %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (typeof playSound === 'function') playSound('correct');
+                    pet.happiness = data.happiness;
+                    pet.poopCount = 0;
+                    poops = [];
+                    document.getElementById('lblHappy').innerText = pet.happiness;
+                    document.getElementById('lblPoop').innerText = 0;
+                }
+            });
+        }
+
+        function playWithPet() {
+            pet.state = 'jumping';
+            if (typeof playSound === 'function') playSound('correct');
+            setTimeout(() => pet.state = 'wandering', 800);
+        }
+
+        function gameLoop() {
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 350);
+            ctx.lineTo(canvas.width, 350);
+            ctx.stroke();
+
+            ctx.font = '28px sans-serif';
+            poops.forEach(p => {
+                ctx.fillText('💩', p.x, p.y);
+            });
+
+            if (pet.state === 'wandering') {
+                pet.x += pet.vx;
+                if (pet.x < 100 || pet.x > 700) pet.vx *= -1;
+            }
+
+            // Draw Evolving Pet Emoji Avatar on Canvas
+            ctx.save();
+            ctx.translate(pet.x, pet.state === 'jumping' ? 270 : 315);
+            ctx.font = '50px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(pet.emoji, 0, 0);
+            ctx.restore();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

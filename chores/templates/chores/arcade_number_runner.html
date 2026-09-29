@@ -1,0 +1,771 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade - Number Runner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 select-none">
+
+    <!-- Top Navigation Header -->
+    <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Arcade
+        </a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            <span class="font-bold text-cyan-400">🔢 Number Runner</span>
+        </div>
+    </div>
+
+    <!-- Game Arena -->
+    <div class="flex flex-col items-center my-auto w-full max-w-2xl">
+        <div class="relative bg-slate-950 border-2 border-cyan-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Start / Game Over / Level Complete Overlay -->
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <h1 id="overlayTitle" class="text-3xl font-extrabold text-cyan-400 mb-2 animate-bounce">🔢 Number Runner 🔢</h1>
+                <p id="overlayDesc" class="text-slate-300 text-sm mb-6 max-w-xs">Collect coins, keys, avoid spikes, and rescue your goofy number train!</p>
+                <button id="overlayBtn" onclick="startGame()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">
+                    Start Level 1 🚀
+                </button>
+            </div>
+        </div>
+
+        <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
+            <span>Score: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>Coins: <span id="coinDisplay" class="text-yellow-300">0</span></span>
+            <span>Level: <span id="levelDisplay" class="text-yellow-400 font-extrabold">1 / 5</span></span>
+            <span>Key: <span id="keyStatusDisplay" class="text-slate-500 font-extrabold">🔒 Missing</span></span>
+            <span>High Score: <span id="highScoreDisplay" class="text-yellow-400">{{ high_score|default:0 }}</span></span>
+        </div>
+
+        <!-- On-Screen Touch Controls -->
+        <div class="flex justify-between w-full mt-4 gap-4 px-2">
+            <div class="flex gap-2">
+                <button ontouchstart="startMove('left')" ontouchend="stopMove('left')" onmousedown="startMove('left')" onmouseup="stopMove('left')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 active:bg-cyan-600 text-slate-200 font-extrabold px-6 py-4 rounded-2xl shadow-lg text-lg transition">
+                    ◀️ Left
+                </button>
+                <button ontouchstart="startMove('right')" ontouchend="stopMove('right')" onmousedown="startMove('right')" onmouseup="stopMove('right')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 active:bg-cyan-600 text-slate-200 font-extrabold px-6 py-4 rounded-2xl shadow-lg text-lg transition">
+                    Right ▶️
+                </button>
+            </div>
+            <button ontouchstart="jump()" onclick="jump()" class="bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white font-extrabold px-8 py-4 rounded-2xl shadow-lg text-lg transition flex items-center gap-2">
+                🚀 Jump
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Platformer Train
+    </div>
+
+    <!-- Game Script -->
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('gameOverlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlayDesc = document.getElementById('overlayDesc');
+        const overlayBtn = document.getElementById('overlayBtn');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const coinDisplay = document.getElementById('coinDisplay');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const keyStatusDisplay = document.getElementById('keyStatusDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+
+        canvas.width = 800;
+        canvas.height = 400;
+
+        let gameRunning = false;
+        let score = 0;
+        let coinsCollected = 0;
+        let currentLevel = 1;
+        let highScore = {{ high_score|default:0 }};
+        const maxLevels = 5;
+
+        // Extended sound synthesizer helper in case sound_effects.js uses standard playSound function
+        function playCustomSound(type) {
+            if (typeof playSound === 'function') {
+                // If the external library handles standard tags, we can check or wrap them. 
+                // Alternatively, let's play direct synthesized Web Audio for our custom types:
+            }
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!window.audioCtx) window.audioCtx = new AudioContext();
+                const ctxAudio = window.audioCtx;
+                if (ctxAudio.state === 'suspended') ctxAudio.resume();
+
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                const now = ctxAudio.currentTime;
+
+                if (type === 'jump') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                    osc.start(now);
+                    osc.stop(now + 0.18);
+                } 
+                else if (type === 'squish') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.25, now + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } 
+                else if (type === 'death') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.setValueAtTime(300, now + 0.15);
+                    osc.frequency.setValueAtTime(200, now + 0.3);
+                    osc.frequency.setValueAtTime(100, now + 0.45);
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.25, now + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.65);
+                    osc.start(now);
+                    osc.stop(now + 0.65);
+                } 
+                else if (type === 'victory') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);        // C5
+                    osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
+                    osc.frequency.setValueAtTime(783.99, now + 0.24); // G5
+                    osc.frequency.setValueAtTime(1046.50, now + 0.36);// C6
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.3, now + 0.04);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.75);
+                    osc.start(now);
+                    osc.stop(now + 0.75);
+                }
+                else {
+                    // Fallback to external playSound if available
+                    if (typeof playSound === 'function') playSound(type);
+                }
+            } catch (e) {
+                if (typeof playSound === 'function') playSound(type);
+            }
+        }
+
+        let player = {
+            screenX: 180,
+            y: 260,
+            width: 45,
+            height: 55,
+            vy: 0,
+            speed: 5,
+            gravity: 0.8,
+            jumpPower: -14,
+            isJumping: false
+        };
+
+        let cameraX = 0;
+        let levelLength = 1600;
+        let followers = []; 
+        let positionHistory = []; 
+        let obstacles = []; 
+        let enemies = [];
+        let coins = [];
+        let keyItem = { x: 0, y: 270, width: 30, height: 30, collected: false };
+        let particles = [];
+        let finishLineX = 1500;
+        let hasKey = false;
+
+        let keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+                e.preventDefault();
+                jump();
+            }
+        });
+        window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        let touchMoving = { left: false, right: false };
+        function startMove(dir) { touchMoving[dir] = true; }
+        function stopMove(dir) { touchMoving[dir] = false; }
+
+        function jump() {
+            if (!gameRunning) return;
+            if (!player.isJumping) {
+                player.vy = player.jumpPower;
+                player.isJumping = true;
+                playCustomSound('jump');
+            }
+        }
+
+        // Helper function to draw goofy eyes on any number character
+        function drawGoofyEyes(centerX, centerY) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(centerX - 7, centerY - 6, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(centerX + 8, centerY - 5, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(centerX - 5, centerY - 6, 2, 0, Math.PI * 2);
+            ctx.arc(centerX + 9, centerY - 5, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function loadLevel(levelNum) {
+            obstacles = [];
+            enemies = [];
+            coins = [];
+            particles = [];
+            positionHistory = [];
+            cameraX = 0;
+            player.y = 260;
+            player.vy = 0;
+            player.isJumping = false;
+            hasKey = false;
+            keyStatusDisplay.innerHTML = '🔒 Missing';
+            keyStatusDisplay.className = 'text-slate-500 font-extrabold';
+
+            levelLength = 1400 + (levelNum * 300);
+            finishLineX = levelLength - 150;
+
+            keyItem = {
+                x: 400 + Math.random() * (finishLineX - 700),
+                y: 230,
+                width: 30,
+                height: 30,
+                collected: false
+            };
+
+            // Spawn collectible coins
+            let coinX = 300;
+            while (coinX < finishLineX - 100) {
+                coins.push({
+                    x: coinX,
+                    y: 180 + Math.random() * 60,
+                    width: 24,
+                    height: 24,
+                    collected: false
+                });
+                coinX += 160 + Math.random() * 100;
+            }
+
+            let currentX = 350;
+            while (currentX < finishLineX - 250) {
+                let randType = Math.random();
+                let obsType = 'pipe';
+                let width = 45;
+                let height = 55;
+                let yPos = 265;
+
+                if (randType < 0.28) {
+                    obsType = 'pit';
+                    width = 90;
+                } else if (randType < 0.55) {
+                    obsType = 'spike';
+                    width = 40;
+                    height = 35;
+                    yPos = 285;
+                } else {
+                    obsType = 'pipe';
+                    width = 50;
+                    height = 55;
+                    yPos = 265;
+                }
+
+                obstacles.push({
+                    x: currentX,
+                    y: yPos,
+                    width: width,
+                    height: height,
+                    type: obsType
+                });
+
+                if (obsType !== 'pit' && Math.random() < 0.6) {
+                    enemies.push({
+                        x: currentX + 70,
+                        y: 275,
+                        width: 38,
+                        height: 45,
+                        vx: (Math.random() < 0.5 ? 1 : -1) * (1.5 + levelNum * 0.3),
+                        minX: currentX,
+                        maxX: currentX + 200,
+                        alive: true
+                    });
+                }
+
+                currentX += 240 + Math.random() * 120;
+            }
+        }
+
+        function startGame() {
+            overlay.classList.add('hidden');
+            score = 0;
+            coinsCollected = 0;
+            currentLevel = 1;
+            followers = [];
+            loadLevel(currentLevel);
+            gameRunning = true;
+            playCustomSound('correct');
+            requestAnimationFrame(updateGame);
+        }
+
+        function spawnParticles(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    radius: Math.random() * 4 + 2,
+                    color: color, alpha: 1
+                });
+            }
+        }
+
+        function completeLevel() {
+            gameRunning = false;
+            playCustomSound('victory');
+
+            followers.push(currentLevel);
+            score += currentLevel * 100;
+
+            if (currentLevel >= maxLevels) {
+                winGame();
+                return;
+            }
+
+            const completedNum = currentLevel;
+            currentLevel++;
+            overlayTitle.innerText = `Freed Number ${completedNum}! 🎉`;
+            overlayDesc.innerText = `You unlocked the jail cell with your key! Get ready for Level ${currentLevel}.`;
+            overlayBtn.innerText = `Start Level ${currentLevel} 🚀`;
+            overlayBtn.onclick = () => {
+                overlay.classList.add('hidden');
+                loadLevel(currentLevel);
+                gameRunning = true;
+                playCustomSound('correct');
+                requestAnimationFrame(updateGame);
+            };
+            overlay.classList.remove('hidden');
+        }
+
+        function winGame() {
+            playCustomSound('victory');
+            submitScoreAndShowOverlay(`You Win! All Friends Rescued! 🏆`, true);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            playCustomSound('death');
+            spawnParticles(player.screenX + 22, player.y + 27, '#f43f5e');
+            submitScoreAndShowOverlay(`Ouch! Game Over 💥`, false);
+        }
+
+        function submitScoreAndShowOverlay(titleText, isWin) {
+            fetch("{% url 'submit_arcade_score' profile.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    game_key: 'number_runner',
+                    game_title: 'Number Runner',
+                    score: score,
+                    is_lower_better: false
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    highScore = data.high_score;
+                    highScoreDisplay.innerText = highScore;
+
+                    if (data.new_balance !== undefined) {
+                        const coinBadge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (coinBadge) coinBadge.innerText = `🪙 ${data.new_balance} Coins`;
+                    }
+
+                    if (data.earned_bonus && !isWin) {
+                        titleText = `New High Score! +1 🪙 🎉`;
+                    }
+                    overlayTitle.innerText = titleText;
+                    overlayDesc.innerText = `Final Score: ${score} points | Coins: ${coinsCollected} | Rescued: ${followers.length}`;
+                    overlayBtn.innerText = "Play Again 🔄";
+                    overlayBtn.onclick = startGame;
+                    overlay.classList.remove('hidden');
+                }
+            });
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Horizontal Controls & Camera Scrolling with Pipe Side-Collision Blocking
+            let moveSpeed = player.speed;
+            let nextCameraX = cameraX;
+
+            if (keys['ArrowLeft'] || keys['KeyA'] || touchMoving.left) {
+                nextCameraX = Math.max(0, cameraX - moveSpeed);
+            }
+            if (keys['ArrowRight'] || keys['KeyD'] || touchMoving.right) {
+                nextCameraX = Math.min(finishLineX + 50, cameraX + moveSpeed);
+            }
+
+            let tentativePlayerWorldX = nextCameraX + player.screenX + player.width / 2;
+            let blockedByPipe = false;
+
+            obstacles.forEach(obs => {
+                if (obs.type === 'pipe') {
+                    let pBox = { x: nextCameraX + player.screenX, y: player.y, width: player.width, height: player.height };
+                    let oBox = { x: obs.x, y: obs.y, width: obs.width, height: obs.height };
+
+                    if (
+                        pBox.x < oBox.x + oBox.width &&
+                        pBox.x + pBox.width > oBox.x &&
+                        pBox.y < oBox.y + oBox.height &&
+                        pBox.y + pBox.height > oBox.y + 10
+                    ) {
+                        blockedByPipe = true;
+                    }
+                }
+            });
+
+            if (!blockedByPipe) {
+                cameraX = nextCameraX;
+            }
+
+            // Vertical Physics
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            let playerLeftWorldX = cameraX + player.screenX + 6;
+            let playerRightWorldX = cameraX + player.screenX + player.width - 6;
+            let playerWorldX = cameraX + player.screenX + player.width / 2;
+            let groundY = 260; 
+            let landingOnSolid = true;
+
+            obstacles.forEach(obs => {
+                if (obs.type === 'pit') {
+                    if (playerRightWorldX >= obs.x && playerLeftWorldX <= obs.x + obs.width) {
+                        landingOnSolid = false;
+                    }
+                }
+            });
+
+            obstacles.forEach(obs => {
+                if (obs.type === 'pipe') {
+                    let playerBox = { x: player.screenX, y: player.y, width: player.width, height: player.height };
+                    let obsBox = { x: obs.x - cameraX, y: obs.y, width: obs.width, height: obs.height };
+
+                    if (
+                        player.vy > 0 &&
+                        playerBox.x + playerBox.width - 8 > obsBox.x &&
+                        playerBox.x + 8 < obsBox.x + obsBox.width &&
+                        playerBox.y + playerBox.height - player.vy <= obsBox.y + 12
+                    ) {
+                        groundY = obs.y - player.height;
+                    }
+                }
+            });
+
+            if (landingOnSolid && player.y >= groundY) {
+                player.y = groundY;
+                player.vy = 0;
+                player.isJumping = false;
+            } else if (!landingOnSolid && player.y > 400) {
+                gameOver();
+                return;
+            }
+
+            positionHistory.unshift({ x: playerWorldX, y: player.y });
+            if (positionHistory.length > 100) {
+                positionHistory.pop();
+            }
+
+            // Draw Ground Segments with Pits
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 4;
+
+            let solidSegments = [{start: 0, end: levelLength + 300}];
+            obstacles.forEach(obs => {
+                if (obs.type === 'pit') {
+                    let newSegments = [];
+                    solidSegments.forEach(seg => {
+                        if (obs.x < seg.end && (obs.x + obs.width) > seg.start) {
+                            if (obs.x > seg.start) newSegments.push({start: seg.start, end: obs.x});
+                            if ((obs.x + obs.width) < seg.end) newSegments.push({start: obs.x + obs.width, end: seg.end});
+                        } else {
+                            newSegments.push(seg);
+                        }
+                    });
+                    solidSegments = newSegments;
+                }
+            });
+
+            solidSegments.forEach(seg => {
+                let screenStart = seg.start - cameraX;
+                let screenEnd = seg.end - cameraX;
+                if (screenEnd > 0 && screenStart < canvas.width) {
+                    ctx.fillRect(screenStart, 320, screenEnd - screenStart, 80);
+                    ctx.beginPath();
+                    ctx.moveTo(screenStart, 320);
+                    ctx.lineTo(screenEnd, 320);
+                    ctx.stroke();
+                }
+            });
+
+            // Draw & Collect Coins
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    let coinScreenX = coin.x - cameraX;
+                    if (coinScreenX > -50 && coinScreenX < canvas.width + 50) {
+                        ctx.fillStyle = '#facc15';
+                        ctx.beginPath();
+                        ctx.arc(coinScreenX + coin.width / 2, coin.y + coin.height / 2, 11, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#eab308';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+
+                        ctx.fillStyle = '#854d0e';
+                        ctx.font = 'bold 13px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('$', coinScreenX + coin.width / 2, coin.y + coin.height / 2 + 5);
+
+                        let playerBox = { x: player.screenX, y: player.y, width: player.width, height: player.height };
+                        let coinBox = { x: coinScreenX, y: coin.y, width: coin.width, height: coin.height };
+
+                        if (
+                            playerBox.x < coinBox.x + coinBox.width &&
+                            playerBox.x + playerBox.width > coinBox.x &&
+                            playerBox.y < coinBox.y + coinBox.height &&
+                            playerBox.y + playerBox.height > coinBox.y
+                        ) {
+                            coin.collected = true;
+                            coinsCollected++;
+                            score += 25;
+                            spawnParticles(coinScreenX + 12, coin.y + 12, '#facc15');
+                            playCustomSound('coin');
+                        }
+                    }
+                }
+            });
+
+            // Draw & Collect Key Item
+            if (!keyItem.collected) {
+                let keyScreenX = keyItem.x - cameraX;
+                if (keyScreenX > -50 && keyScreenX < canvas.width + 50) {
+                    ctx.fillStyle = '#eab308';
+                    ctx.font = 'bold 28px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🔑', keyScreenX + keyItem.width / 2, keyItem.y + 25);
+
+                    if (
+                        playerWorldX >= keyItem.x &&
+                        playerWorldX <= keyItem.x + keyItem.width &&
+                        player.y + player.height >= keyItem.y &&
+                        player.y <= keyItem.y + keyItem.height
+                    ) {
+                        keyItem.collected = true;
+                        hasKey = true;
+                        keyStatusDisplay.innerHTML = '🔑 Acquired!';
+                        keyStatusDisplay.className = 'text-yellow-400 font-extrabold animate-pulse';
+                        playCustomSound('correct');
+                        spawnParticles(keyScreenX + 15, keyItem.y + 15, '#eab308');
+                    }
+                }
+            }
+
+            // Draw Jail Cell at Level End with Goofy Eyes on Trapped Friend
+            let jailScreenX = finishLineX - cameraX;
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(jailScreenX, 240, 60, 80);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(jailScreenX, 240, 60, 80);
+            
+            for (let b = 15; b < 60; b += 15) {
+                ctx.beginPath();
+                ctx.moveTo(jailScreenX + b, 240);
+                ctx.lineTo(jailScreenX + b, 320);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = hasKey ? '#22c55e' : '#f43f5e';
+            ctx.font = 'bold 36px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(currentLevel, jailScreenX + 30, 295);
+            drawGoofyEyes(jailScreenX + 30, 280);
+
+            if (playerWorldX >= finishLineX + 15) {
+                if (hasKey) {
+                    completeLevel();
+                    return;
+                } else {
+                    cameraX = finishLineX - player.screenX - player.width - 10;
+                }
+            }
+
+            // Update & Draw Enemies
+            enemies.forEach(en => {
+                if (!en.alive) return;
+
+                en.x += en.vx;
+
+                if (en.x <= en.minX || en.x + en.width >= en.maxX) {
+                    en.vx *= -1;
+                } else {
+                    obstacles.forEach(obs => {
+                        if (
+                            en.x < obs.x + obs.width &&
+                            en.x + en.width > obs.x &&
+                            en.y < obs.y + obs.height &&
+                            en.y + obs.height > obs.y
+                        ) {
+                            if (en.vx > 0) {
+                                en.x = obs.x - en.width;
+                            } else {
+                                en.x = obs.x + obs.width;
+                            }
+                            en.vx *= -1;
+                        }
+                    });
+                }
+
+                let screenEnX = en.x - cameraX;
+                if (screenEnX > -60 && screenEnX < canvas.width + 60) {
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.roundRect(screenEnX, en.y, en.width, en.height, 8);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(screenEnX + 6, en.y + 8, 7, 7);
+                    ctx.fillRect(screenEnX + 23, en.y + 8, 7, 7);
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(screenEnX + 8, en.y + 10, 3, 3);
+                    ctx.fillRect(screenEnX + 25, en.y + 10, 3, 3);
+
+                    let playerBox = { x: player.screenX, y: player.y, width: player.width, height: player.height };
+                    let enemyBox = { x: screenEnX, y: en.y, width: en.width, height: en.height };
+
+                    if (
+                        playerBox.x < enemyBox.x + enemyBox.width - 6 &&
+                        playerBox.x + playerBox.width - 6 > enemyBox.x &&
+                        playerBox.y < enemyBox.y + enemyBox.height &&
+                        playerBox.y + playerBox.height > enemyBox.y
+                    ) {
+                        if (player.vy > 0 && player.y + player.height - player.vy <= enemyBox.y + 15) {
+                            en.alive = false;
+                            player.vy = player.jumpPower * 0.7;
+                            score += 25;
+                            spawnParticles(screenEnX + 20, en.y + 20, '#f43f5e');
+                            playCustomSound('squish');
+                        } else {
+                            gameOver();
+                            return;
+                        }
+                    }
+                }
+            });
+
+            // Draw Obstacles (Pipes & Spikes)
+            obstacles.forEach(obs => {
+                let screenObsX = obs.x - cameraX;
+                if (screenObsX > -100 && screenObsX < canvas.width + 100) {
+                    if (obs.type === 'pipe') {
+                        ctx.fillStyle = '#06b6d4';
+                        ctx.beginPath();
+                        ctx.roundRect(screenObsX, obs.y, obs.width, obs.height, 6);
+                        ctx.fill();
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    } else if (obs.type === 'spike') {
+                        ctx.fillStyle = '#ef4444';
+                        ctx.beginPath();
+                        ctx.moveTo(screenObsX, obs.y + obs.height);
+                        ctx.lineTo(screenObsX + obs.width / 2, obs.y);
+                        ctx.lineTo(screenObsX + obs.width, obs.y + obs.height);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        let playerBox = { x: player.screenX, y: player.y, width: player.width, height: player.height };
+                        let obsBox = { x: screenObsX, y: obs.y, width: obs.width, height: obs.height };
+
+                        if (
+                            playerBox.x < obsBox.x + obsBox.width - 6 &&
+                            playerBox.x + playerBox.width - 6 > obsBox.x &&
+                            playerBox.y < obsBox.y + obsBox.height &&
+                            playerBox.y + playerBox.height > obsBox.y
+                        ) {
+                            gameOver();
+                            return;
+                        }
+                    }
+                }
+            });
+
+            // Draw Main Character Digit (0) with Goofy Eyes
+            ctx.fillStyle = '#22d3ee';
+            ctx.font = 'bold 50px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('0', player.screenX + player.width / 2, player.y + 46);
+            drawGoofyEyes(player.screenX + player.width / 2, player.y + 25);
+
+            // Draw Number Train Followers with Goofy Eyes & delayed jump tracking
+            followers.forEach((num, idx) => {
+                let historyIndex = Math.min((idx + 1) * 15, positionHistory.length - 1);
+                let pastPos = positionHistory[historyIndex] || { x: playerWorldX, y: player.y };
+                let followerScreenX = pastPos.x - cameraX;
+
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 36px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(num, followerScreenX, pastPos.y + 42);
+                drawGoofyEyes(followerScreenX, pastPos.y + 22);
+            });
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = 1.0;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            scoreDisplay.innerText = score + Math.floor(cameraX / 5);
+            coinDisplay.innerText = coinsCollected;
+            levelDisplay.innerText = `${currentLevel} / ${maxLevels}`;
+            requestAnimationFrame(updateGame);
+        }
+    </script>
+</body>
+</html>
