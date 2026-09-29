@@ -1,0 +1,426 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade - Number Jump</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 select-none">
+
+    <!-- Top Navigation Header -->
+    <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Arcade
+        </a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            <span class="font-bold text-cyan-400">🦘 Number Jump</span>
+        </div>
+    </div>
+
+    <!-- Game Arena -->
+    <div class="flex flex-col items-center my-auto w-full max-w-2xl">
+        <div class="relative bg-slate-950 border-2 border-cyan-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
+            <canvas id="jumpCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Start / Game Over Overlay -->
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-10">
+                <h1 class="text-3xl font-extrabold text-cyan-400 mb-2 animate-bounce">🦘 Number Jump 🦘</h1>
+                <p class="text-slate-300 text-sm mb-6 max-w-xs">Bounce on platforms, catch floating <b>+10</b> buddies to level up, and stomp occasional monsters!</p>
+                <button onclick="startGame()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">
+                    Start Jumping 🚀
+                </button>
+            </div>
+        </div>
+
+        <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
+            <span>Your Number: <span id="currentNumberDisplay" class="text-cyan-400 font-extrabold text-sm">0</span></span>
+            <span>Height: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>High Score: <span id="highScoreDisplay" class="text-yellow-400">{{ high_score|default:0 }}</span></span>
+        </div>
+
+        <!-- On-Screen Touch Controls for Tablets/Phones -->
+        <div class="flex justify-between w-full mt-4 gap-4 px-2">
+            <button ontouchstart="startMove('left')" ontouchend="stopMove('left')" onmousedown="startMove('left')" onmouseup="stopMove('left')" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 active:bg-cyan-600 text-slate-200 font-extrabold py-4 rounded-2xl shadow-lg text-xl transition">
+                ◀️ Left
+            </button>
+            <button ontouchstart="startMove('right')" ontouchend="stopMove('right')" onmousedown="startMove('right')" onmouseup="stopMove('right')" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 active:bg-cyan-600 text-slate-200 font-extrabold py-4 rounded-2xl shadow-lg text-xl transition">
+                Right ▶️
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-slate-500 text-center">
+        Family Chore Arcade • Vertical Climber
+    </div>
+
+    <!-- Game Script -->
+    <script>
+        const canvas = document.getElementById('jumpCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('gameOverlay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const currentNumberDisplay = document.getElementById('currentNumberDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+
+        canvas.width = 800;
+        canvas.height = 400;
+
+        let gameRunning = false;
+        let maxHeight = 0;
+        let currentNumberVal = 0; // Starts at 0!
+        let highScore = {{ high_score|default:0 }};
+
+        let player = {
+            x: 375,
+            y: 280,
+            width: 50,
+            height: 50,
+            vx: 0,
+            vy: 0,
+            gravity: 0.4,
+            jumpPower: -11.5,
+            speed: 6
+        };
+
+        let platforms = [];
+        let monsters = [];
+        let upgradeOrbs = []; 
+        let cameraY = 0;
+
+        let keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') player.vx = -player.speed;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') player.vx = player.speed;
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+            if ((e.code === 'ArrowLeft' || e.code === 'KeyA') && player.vx < 0) player.vx = 0;
+            if ((e.code === 'ArrowRight' || e.code === 'KeyD') && player.vx > 0) player.vx = 0;
+        });
+
+        function startMove(dir) {
+            if (dir === 'left') player.vx = -player.speed;
+            if (dir === 'right') player.vx = player.speed;
+        }
+        function stopMove(dir) {
+            if (dir === 'left' && player.vx < 0) player.vx = 0;
+            if (dir === 'right' && player.vx > 0) player.vx = 0;
+        }
+
+        function drawGoofyEyes(centerX, centerY) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(centerX - 8, centerY - 6, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(centerX + 8, centerY - 6, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(centerX - 6, centerY - 6, 2.5, 0, Math.PI * 2);
+            ctx.arc(centerX + 9, centerY - 6, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function initPlatforms() {
+            platforms = [
+                { x: 350, y: 350, width: 110, height: 16 } // starting platform
+            ];
+            monsters = [];
+            upgradeOrbs = [];
+            let genY = 280;
+            let lastX = 350;
+
+            while (genY > -2000) {
+                let width = 90;
+                let minX = Math.max(20, lastX - 140);
+                let maxX = Math.min(canvas.width - width - 20, lastX + 140);
+                let newX = minX + Math.random() * (maxX - minX);
+
+                let p = {
+                    x: newX,
+                    y: genY,
+                    width: width,
+                    height: 16
+                };
+                platforms.push(p);
+
+                // Rare occasional monster (~6% chance)
+                if (genY < 150 && Math.random() < 0.06) {
+                    monsters.push({
+                        x: newX + width / 2 - 20,
+                        y: genY - 35,
+                        width: 40,
+                        height: 35,
+                        alive: true
+                    });
+                }
+
+                // Sparse collectible +10 character (~10% chance so it's a nice treat)
+                if (genY < 200 && Math.random() < 0.10) {
+                    upgradeOrbs.push({
+                        x: newX + width / 2 - 20,
+                        y: genY - 48,
+                        width: 40,
+                        height: 40,
+                        collected: false
+                    });
+                }
+
+                lastX = newX;
+                genY -= 50 + Math.random() * 15;
+            }
+        }
+
+        function startGame() {
+            overlay.classList.add('hidden');
+            maxHeight = 0;
+            currentNumberVal = 0; // Starts at 0!
+            cameraY = 0;
+            player.x = 375;
+            player.y = 260;
+            player.vy = player.jumpPower;
+            player.vx = 0;
+            initPlatforms();
+            gameRunning = true;
+            requestAnimationFrame(updateGame);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            if (typeof playSound === 'function') playSound('incorrect');
+
+            fetch("{% url 'submit_arcade_score' profile.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    game_key: 'number_jump',
+                    game_title: 'Number Jump',
+                    score: currentNumberVal, 
+                    is_lower_better: false
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    highScore = data.high_score;
+                    highScoreDisplay.innerText = highScore;
+                    if (data.new_balance !== undefined) {
+                        const coinBadge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (coinBadge) coinBadge.innerText = `🪙 ${data.new_balance} Coins`;
+                    }
+                    if (data.earned_bonus) {
+                        overlay.querySelector('h1').innerText = "New High Score! +1 🪙 🎉";
+                    } else {
+                        overlay.querySelector('h1').innerText = "Oops! Game Over! 💥";
+                    }
+                }
+            });
+
+            overlay.querySelector('button').innerText = "Play Again 🔄";
+            overlay.classList.remove('hidden');
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Physics
+            player.vy += player.gravity;
+            player.y += player.vy;
+            player.x += player.vx;
+
+            // Screen wrapping horizontally
+            if (player.x + player.width < 0) player.x = canvas.width;
+            if (player.x > canvas.width) player.x = 0;
+
+            // Camera tracking upwards
+            let targetCameraY = player.y - 180;
+            if (targetCameraY < cameraY) {
+                cameraY = targetCameraY;
+            }
+
+            // Calculate height score
+            let currentHeight = Math.max(0, Math.floor((350 - player.y) / 10));
+            if (currentHeight > maxHeight) {
+                maxHeight = currentHeight;
+            }
+
+            scoreDisplay.innerText = maxHeight;
+            currentNumberDisplay.innerText = currentNumberVal;
+
+            // Platform collision (only when falling)
+            if (player.vy > 0) {
+                platforms.forEach(p => {
+                    if (
+                        player.x + player.width - 10 > p.x &&
+                        player.x + 10 < p.x + p.width &&
+                        player.y + player.height >= p.y &&
+                        player.y + player.height - player.vy <= p.y + 12
+                    ) {
+                        player.vy = player.jumpPower; 
+                        if (typeof playSound === 'function') playSound('correct');
+                    }
+                });
+            }
+
+            // Catching +10 Character Orbs
+            upgradeOrbs.forEach(orb => {
+                if (!orb.collected) {
+                    if (
+                        player.x < orb.x + orb.width &&
+                        player.x + player.width > orb.x &&
+                        player.y < orb.y + orb.height &&
+                        player.y + player.height > orb.y
+                    ) {
+                        orb.collected = true;
+                        currentNumberVal += 10; 
+                        if (typeof playSound === 'function') playSound('correct');
+                    }
+                }
+            });
+
+            // Monster Collision Checking
+            monsters.forEach(m => {
+                if (!m.alive) return;
+
+                if (
+                    player.x + player.width - 8 > m.x &&
+                    player.x + 8 < m.x + m.width &&
+                    player.y + player.height > m.y &&
+                    player.y < m.y + m.height
+                ) {
+                    if (player.vy > 0 && player.y + player.height - player.vy <= m.y + 16) {
+                        m.alive = false;
+                        player.vy = player.jumpPower * 0.9;
+                        currentNumberVal += 20; 
+                        if (typeof playSound === 'function') playSound('correct');
+                    } else {
+                        gameOver();
+                    }
+                }
+            });
+
+            // Generate new platforms & items safely ahead as you climb
+            let topPlatform = platforms[platforms.length - 1];
+            if (topPlatform.y > cameraY - 200) {
+                let width = 90;
+                let minX = Math.max(20, topPlatform.x - 140);
+                let maxX = Math.min(canvas.width - width - 20, topPlatform.x + 140);
+                let newX = minX + Math.random() * (maxX - minX);
+
+                let nextY = topPlatform.y - (50 + Math.random() * 15);
+                platforms.push({
+                    x: newX,
+                    y: nextY,
+                    width: width,
+                    height: 16
+                });
+
+                if (Math.random() < 0.06) {
+                    monsters.push({
+                        x: newX + width / 2 - 20,
+                        y: nextY - 35,
+                        width: 40,
+                        height: 35,
+                        alive: true
+                    });
+                }
+
+                if (Math.random() < 0.10) {
+                    upgradeOrbs.push({
+                        x: newX + width / 2 - 20,
+                        y: nextY - 48,
+                        width: 40,
+                        height: 40,
+                        collected: false
+                    });
+                }
+            }
+
+            // Game over if player falls below screen view
+            if (player.y > cameraY + canvas.height + 60) {
+                gameOver();
+                return;
+            }
+
+            // Render Graphics
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(0, -cameraY);
+
+            // Draw Platforms
+            platforms.forEach(p => {
+                ctx.fillStyle = '#0ea5e9';
+                ctx.beginPath();
+                ctx.roundRect(p.x, p.y, p.width, p.height, 6);
+                ctx.fill();
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // Draw Character-Styled +10 Collectibles (with goofy eyes!)
+            upgradeOrbs.forEach(orb => {
+                if (!orb.collected) {
+                    let orbCenterX = orb.x + orb.width / 2;
+                    let orbCenterY = orb.y + 32;
+
+                    ctx.fillStyle = '#22d3ee';
+                    ctx.font = 'bold 32px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('+10', orbCenterX, orbCenterY);
+                    drawGoofyEyes(orbCenterX, orbCenterY - 14);
+                }
+            });
+
+            // Draw Monsters
+            monsters.forEach(m => {
+                if (!m.alive) return;
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.roundRect(m.x, m.y, m.width, m.height, 8);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(m.x + 6, m.y + 8, 8, 8);
+                ctx.fillRect(m.x + 24, m.y + 8, 8, 8);
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(m.x + 8, m.y + 10, 3, 3);
+                ctx.fillRect(m.x + 26, m.y + 10, 3, 3);
+            });
+
+            // Draw Player Character (Displaying current dynamic number: 0, 10, 20, 30...)
+            let renderX = player.x + player.width / 2;
+            let renderY = player.y + 40;
+
+            ctx.fillStyle = '#22d3ee';
+            ctx.font = 'bold 44px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(currentNumberVal, renderX, renderY);
+            drawGoofyEyes(renderX, renderY - 18);
+
+            ctx.restore();
+            requestAnimationFrame(updateGame);
+        }
+    </script>
+</body>
+</html>

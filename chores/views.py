@@ -1103,6 +1103,24 @@ def arcade_number_runner(request, profile_id):
         'high_score': high_score,
     })
 
+def arcade_fireworks(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='star_fireworks').first()
+    return render(request, 'chores/arcade_fireworks.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 0,
+    })
+
+def arcade_number_jump(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='number_jump').first()
+    return render(request, 'chores/arcade_number_jump.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 0,
+    })
+
 def update_notifications(request):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
