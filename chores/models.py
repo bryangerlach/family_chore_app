@@ -253,3 +253,15 @@ class VirtualPet(models.Model):
             self.level += 1
             self.experience -= required_xp
         self.save()
+
+class ParentNotificationConfig(models.Model):
+    parent = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='notification_config')
+    webhook_url = models.URLField(max_length=500, blank=True, null=True, help_text="Webhook URL (Home Assistant, Discord, ntfy.sh, etc.)")
+    
+    # Notification Event Toggles
+    notify_chore_waiting = models.BooleanField(default=True, help_text="Notify when a child requests chore approval")
+    notify_reward_requested = models.BooleanField(default=True, help_text="Notify when a child requests a reward")
+    notify_quiz_completed = models.BooleanField(default=False, help_text="Notify on quiz activity")
+    
+    def __str__(self):
+        return f"Notification Config for {self.parent.name}"

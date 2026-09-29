@@ -76,6 +76,7 @@ urlpatterns = [
     path('child/<int:profile_id>/pet/action/feed/', views.pet_action_feed, name='pet_action_feed'),
     path('child/<int:profile_id>/pet/action/clean/', views.pet_action_clean, name='pet_action_clean'),
     path('child/<int:profile_id>/arcade/number-runner/', views.arcade_number_runner, name='arcade_number_runner'),
+    path('parent/notifications/update/', views.update_notifications, name='update_notifications'),
 ]
 
 if settings.DEBUG:

@@ -14,8 +14,9 @@ from django.views.decorators.http import require_POST
 from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
     CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, 
-    QuizWrongAttempt, StarLedger, ArcadeHighScore, VirtualPet
+    QuizWrongAttempt, StarLedger, ArcadeHighScore, VirtualPet, ParentNotificationConfig
 )
+from .utils import send_notification
 
 
 # ==========================================
@@ -102,6 +103,13 @@ def request_approval(request, task_status_id):
     if task_status.status == 'pending':
         task_status.status = 'waiting'
         task_status.save()
+        
+        send_notification(
+            title="Chore Needs Approval! 🧹",
+            message=f"{task_status.child.name} completed '{task_status.task.title}' and is waiting for review.",
+            event_type="chore_waiting"
+        )
+        
     return redirect('child_dashboard', profile_id=task_status.child.id)
 
 
@@ -112,11 +120,16 @@ def redeem_reward(request, profile_id, reward_id):
     if child.get_stars_balance() >= reward.star_cost:
         RedemptionLog.objects.create(child=child, reward=reward, status='pending')
         
-        # Deduct stars immediately via ledger
         StarLedger.objects.create(
             child=child,
             amount=-reward.star_cost,
             reason=f"Requested reward: {reward.title}"
+        )
+        
+        send_notification(
+            title="Reward Requested! 🎁",
+            message=f"{child.name} requested to redeem '{reward.title}' for {reward.star_cost} stars!",
+            event_type="reward_requested"
         )
         
     return redirect('child_dashboard', profile_id=child.id)
@@ -268,6 +281,11 @@ def submit_quiz(request, profile_id, question_id):
                     child=profile,
                     amount=earned_coins,
                     reason=f"Correct Quiz Answer ({earned_coins}🪙): {question.question_text[:15]}..."
+                )
+                send_notification(
+                    title="Quiz Completed! 🧠",
+                    message=f"{profile.name} answered a quiz question correctly and earned {earned_coins} coins!",
+                    event_type="quiz_completed"
                 )
             except IntegrityError:
                 return redirect(f"/child/{profile.id}/quiz/?feedback=already_solved")
@@ -430,6 +448,8 @@ def parent_dashboard(request):
 def management_hub(request):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
+
+    parents = Profile.objects.filter(user_type='parent')
         
     return render(request, 'chores/management_hub.html', {
         'tasks': Task.objects.all(),
@@ -437,6 +457,7 @@ def management_hub(request):
         'coin_items': CoinStoreItem.objects.all(),
         'quiz_questions': QuizQuestion.objects.all(),
         'profiles': Profile.objects.all(),
+        'parents': parents,
     })
 
 
@@ -1081,3 +1102,20 @@ def arcade_number_runner(request, profile_id):
         'coin_balance': profile.get_coin_balance(),
         'high_score': high_score,
     })
+
+def update_notifications(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    if request.method == 'POST':
+        parent_id = request.POST.get('parent_id')
+        parent = get_object_or_404(Profile, id=parent_id, user_type='parent')
+        
+        config, created = ParentNotificationConfig.objects.get_or_create(parent=parent)
+        config.webhook_url = request.POST.get('webhook_url', '').strip()
+        config.notify_chore_waiting = 'notify_chore_waiting' in request.POST
+        config.notify_reward_requested = 'notify_reward_requested' in request.POST
+        config.notify_quiz_completed = 'notify_quiz_completed' in request.POST
+        config.save()
+        
+    return redirect('management_hub')

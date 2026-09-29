@@ -268,6 +268,52 @@
                 </div>
             </details>
 
+            <!-- Manage Parent Notifications -->
+            <details id="notificationsSection" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl group">
+                <summary class="text-lg font-bold text-cyan-400 cursor-pointer list-none flex justify-between items-center">
+                    <span>🔔 Manage Parent Notifications (Webhooks)</span>
+                    <span class="text-xs text-slate-400 group-open:rotate-180 transition-transform">▼ </span>
+                </summary>
+                <div class="mt-4 pt-4 border-t border-slate-700 space-y-4">
+                    <p class="text-xs text-slate-400">Configure webhook endpoints (Home Assistant, Discord, ntfy.sh) per parent profile.</p>
+                    
+                    {% for p in parents %}
+                        <form action="{% url 'update_notifications' %}" method="POST" class="bg-slate-700/40 p-4 rounded-2xl border border-slate-700 space-y-3">
+                            {% csrf_token %}
+                            <input type="hidden" name="parent_id" value="{{ p.id }}">
+                            
+                            <h4 class="text-xs font-bold text-cyan-300 uppercase flex items-center gap-1">
+                                <span>{{ p.emoji }}</span> {{ p.name }}'s Webhook Settings
+                            </h4>
+                            
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Webhook URL:</label>
+                                <input type="url" name="webhook_url" value="{{ p.notification_config.webhook_url|default:'' }}" placeholder="http://homeassistant.local:8123/api/webhook/..." class="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs font-mono">
+                            </div>
+                            
+                            <div class="space-y-1.5 pt-1">
+                                <label class="flex items-center text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" name="notify_chore_waiting" {% if p.notification_config.notify_chore_waiting or not p.notification_config %}checked{% endif %} class="rounded bg-slate-700 border-slate-600 text-cyan-600 focus:ring-cyan-500 mr-2">
+                                    Notify when a chore is waiting for approval 🧹
+                                </label>
+                                <label class="flex items-center text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" name="notify_reward_requested" {% if p.notification_config.notify_reward_requested or not p.notification_config %}checked{% endif %} class="rounded bg-slate-700 border-slate-600 text-cyan-600 focus:ring-cyan-500 mr-2">
+                                    Notify when a reward is requested 🎁
+                                </label>
+                                <label class="flex items-center text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" name="notify_quiz_completed" {% if p.notification_config.notify_quiz_completed %}checked{% endif %} class="rounded bg-slate-700 border-slate-600 text-cyan-600 focus:ring-cyan-500 mr-2">
+                                    Notify on quiz activity 🧠
+                                </label>
+                            </div>
+                            
+                            <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-xl text-xs shadow transition-colors">Save {{ p.name }}'s Settings 💾</button>
+                        </form>
+                    {% empty %}
+                        <p class="text-slate-400 text-xs">No parent profiles found.</p>
+                    {% endfor %}
+                </div>
+            </details>
+
             <!-- MANAGE PROFILES (Collapsible Accordion) -->
         <details id="profilesSection" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl group">
             <summary class="text-lg sm:text-xl font-semibold text-blue-400 cursor-pointer list-none flex justify-between items-center">
