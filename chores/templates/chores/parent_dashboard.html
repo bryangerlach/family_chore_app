@@ -96,28 +96,22 @@
                             <div>
                                 <h2 class="text-lg font-black text-white">{{ cs.child.name }}</h2>
                                 <div class="flex items-center gap-2">
-                                    <!-- Quick link to child's Arcade Trophy Room -->
+                                     <a href="{% url 'child_dashboard' cs.child.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold transition">
+                                        Dashboard →
+                                    </a>
                                     <a href="{% url 'parent_arcade_leaderboard' %}" class="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold transition">
                                         🏆 Scores
                                     </a>
-                                    <a href="{% url 'child_dashboard' cs.child.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold transition">
-                                        Dashboard →
+                                    <!-- Star Count links directly to Star Ledger -->
+                                    <a href="{% url 'child_star_history' cs.child.id %}" class="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow" title="View Star Ledger">
+                                        ⭐️ {{ cs.star_balance }} <span class="text-[10px] opacity-75"> ↗</span>
                                     </a>
+                                    <!-- Coin Count links directly to Coin Ledger -->
+                                    <a href="{% url 'child_coin_history' cs.child.id %}" class="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow" title="View Coin Ledger">
+                                        🪙 {{ cs.coin_balance }} <span class="text-[10px] opacity-75"> ↗</span>
+                                    </a>  
                                 </div>
                             </div>
-                        </div>
-                        
-                        
-                        <!-- Combined Clickable Balance & Ledger Badges -->
-                        <div class="flex gap-2">
-                            <!-- Star Count links directly to Star Ledger -->
-                            <a href="{% url 'child_star_history' cs.child.id %}" class="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow" title="View Star Ledger">
-                                ⭐️ {{ cs.star_balance }} <span class="text-[10px] opacity-75"> ↗</span>
-                            </a>
-                            <!-- Coin Count links directly to Coin Ledger -->
-                            <a href="{% url 'child_coin_history' cs.child.id %}" class="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow" title="View Coin Ledger">
-                                🪙 {{ cs.coin_balance }} <span class="text-[10px] opacity-75"> ↗</span>
-                            </a>  
                         </div>
                     </div>
 
