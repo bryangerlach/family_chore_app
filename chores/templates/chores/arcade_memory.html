@@ -18,16 +18,21 @@
     </div>
     <div class="flex flex-col items-center my-auto w-full max-w-2xl">
         <div class="relative bg-slate-950 border-2 border-cyan-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1] flex flex-col items-center justify-center p-4">
-            <div id="gridBox" class="grid grid-cols-4 gap-3 w-full max-w-md"></div>
-            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+            <div id="gridBox" class="grid gap-2 w-full max-w-md"></div>
+            
+            <!-- Game Overlay / Level Selector -->
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
                 <h1 class="text-3xl font-extrabold text-cyan-400 mb-2">🧠 Memory Match 🧠</h1>
-                <p class="text-slate-300 text-sm mb-6 max-w-xs">Flip cards to find matching pairs of icons in the fewest moves!</p>
-                <button onclick="startGame()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">Start Game 🚀</button>
+                <p class="text-slate-300 text-sm mb-4 max-w-xs">Choose your level to find matching pairs in the fewest moves!</p>
+                <div class="flex gap-4">
+                    <button onclick="startGame(1)" class="bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold px-6 py-3 rounded-2xl shadow-lg transition transform hover:scale-105 text-sm">Level 1 (6 Pairs) ⭐</button>
+                    <button onclick="startGame(2)" class="bg-purple-600 hover:bg-purple-500 text-white font-extrabold px-6 py-3 rounded-2xl shadow-lg transition transform hover:scale-105 text-sm">Level 2 (10 Pairs) 🚀</button>
+                </div>
             </div>
         </div>
         <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
             <span>Moves: <span id="movesDisplay" class="text-slate-100">0</span></span>
-            <span>Best Moves: <span id="bestMovesDisplay" class="text-yellow-400">{% if high_score > 0 and high_score < 999 %}{{ high_score }}{% else %}---{% endif %}</span></span>
+            <span>Best Moves (Lvl <span id="activeLevelDisplay">1</span>): <span id="bestMovesDisplay" class="text-yellow-400">---</span></span>
             <span>Pairs Found: <span id="pairsDisplay" class="text-cyan-400">0 / 6</span></span>
         </div>
     </div>
@@ -37,22 +42,47 @@
         const movesDisplay = document.getElementById('movesDisplay');
         const pairsDisplay = document.getElementById('pairsDisplay');
         const bestMovesDisplay = document.getElementById('bestMovesDisplay');
+        const activeLevelDisplay = document.getElementById('activeLevelDisplay');
         const gridBox = document.getElementById('gridBox');
         
-        const icons = ['⭐', '🪙', '🚀', '🍎', '🐱', '⚽'];
+        const level1Icons = ['⭐', '🪙', '🚀', '🍎', '🐱', '⚽'];
+        const level2Icons = ['⭐', '🪙', '🚀', '🍎', '🐱', '⚽', '🎨', '🎸', '🍕', '🚗'];
+        
+        let currentLevel = 1;
         let cards = [], flipped = [], matchedPairs = 0, moves = 0, lockBoard = false;
-        let bestMoves = {{ high_score|default:999 }};
+        
+        // High scores passed from backend view
+        const bestLvl1 = {{ high_score_1|default:999 }};
+        const bestLvl2 = {{ high_score_2|default:999 }};
 
-        function startGame() {
+        function updateBestDisplay() {
+            activeLevelDisplay.innerText = currentLevel;
+            let currentBest = (currentLevel === 2) ? bestLvl2 : bestLvl1;
+            bestMovesDisplay.innerText = (currentBest < 999) ? currentBest : '---';
+        }
+
+        function startGame(level) {
+            currentLevel = level;
+            updateBestDisplay();
             overlay.classList.add('hidden');
             moves = 0; matchedPairs = 0; flipped = [];
-            movesDisplay.innerText = moves; 
-            pairsDisplay.innerText = `0 / 6`;
+            movesDisplay.innerText = moves;
+            
+            let icons = (currentLevel === 2) ? level2Icons : level1Icons;
+            pairsDisplay.innerText = `0 / ${icons.length}`;
+            
+            if (currentLevel === 2) {
+                gridBox.className = "grid grid-cols-5 gap-2 w-full max-w-lg";
+            } else {
+                gridBox.className = "grid grid-cols-4 gap-2 w-full max-w-md";
+            }
+
             cards = [...icons, ...icons].sort(() => Math.random() - 0.5);
             gridBox.innerHTML = '';
             cards.forEach((icon, index) => {
                 let card = document.createElement('div');
-                card.className = 'bg-slate-800 border border-slate-700 h-16 rounded-xl flex items-center justify-center text-2xl cursor-pointer transition transform hover:scale-105';
+                let heightClass = (currentLevel === 2) ? 'h-12 text-xl' : 'h-16 text-2xl';
+                card.className = `bg-slate-800 border border-slate-700 ${heightClass} rounded-xl flex items-center justify-center cursor-pointer transition transform hover:scale-105`;
                 card.dataset.icon = icon;
                 card.dataset.index = index;
                 card.innerText = '❓';
@@ -62,6 +92,9 @@
         }
 
         function flipCard(card, icon, index) {
+            let icons = (currentLevel === 2) ? level2Icons : level1Icons;
+            let totalPairs = icons.length;
+
             if (lockBoard || card.classList.contains('matched') || flipped.includes(index)) return;
             card.innerText = icon;
             card.classList.add('bg-slate-700', 'border-cyan-500');
@@ -72,18 +105,19 @@
                 lockBoard = true;
                 if (flipped[0].icon === flipped[1].icon) {
                     matchedPairs++;
-                    pairsDisplay.innerText = `${matchedPairs} / 6`;
+                    pairsDisplay.innerText = `${matchedPairs} / ${totalPairs}`;
                     if (typeof playSound === 'function') playSound('correct');
                     flipped = [];
                     lockBoard = false;
-                    if (matchedPairs === 6) endGame();
+                    if (matchedPairs === totalPairs) endGame();
                 } else {
                     if (typeof playSound === 'function') playSound('incorrect');
                     setTimeout(() => {
+                        let hClass = (currentLevel === 2) ? 'h-12 text-xl' : 'h-16 text-2xl';
                         flipped[0].card.innerText = '❓';
-                        flipped[0].card.className = 'bg-slate-800 border border-slate-700 h-16 rounded-xl flex items-center justify-center text-2xl cursor-pointer transition transform hover:scale-105';
+                        flipped[0].card.className = `bg-slate-800 border border-slate-700 ${hClass} rounded-xl flex items-center justify-center cursor-pointer transition transform hover:scale-105`;
                         flipped[1].card.innerText = '❓';
-                        flipped[1].card.className = 'bg-slate-800 border border-slate-700 h-16 rounded-xl flex items-center justify-center text-2xl cursor-pointer transition transform hover:scale-105';
+                        flipped[1].card.className = `bg-slate-800 border border-slate-700 ${hClass} rounded-xl flex items-center justify-center cursor-pointer transition transform hover:scale-105`;
                         flipped = [];
                         lockBoard = false;
                     }, 900);
@@ -92,7 +126,10 @@
         }
 
         function endGame() {
-            // Submit score to database via AJAX (is_lower_better: true for memory match)
+            let gameKey = (currentLevel === 2) ? 'memory_match_2' : 'memory_match_1';
+            let gameTitle = (currentLevel === 2) ? 'Memory Match (Lvl 2)' : 'Memory Match (Lvl 1)';
+
+            // Submit score to database via AJAX
             fetch("{% url 'submit_arcade_score' profile.id %}", {
                 method: 'POST',
                 headers: {
@@ -100,8 +137,8 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    game_key: 'memory_match',
-                    game_title: 'Memory Match',
+                    game_key: gameKey,
+                    game_title: gameTitle,
                     score: moves,
                     is_lower_better: true
                 })
@@ -109,8 +146,12 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    bestMoves = data.high_score;
-                    bestMovesDisplay.innerText = bestMoves;
+                    if (currentLevel === 2) {
+                        bestLvl2 = data.high_score;
+                    } else {
+                        bestLvl1 = data.high_score;
+                    }
+                    updateBestDisplay();
 
                     if (data.new_balance !== undefined) {
                         const coinBadge = document.querySelector('span.bg-yellow-500\\/20');
@@ -125,9 +166,16 @@
                 }
             });
 
-            overlay.querySelector('button').innerText = "Play Again 🔄";
+            overlay.querySelector('p').innerText = `You finished Level ${currentLevel} in ${moves} moves!`;
+            overlay.querySelector('.flex.gap-4').innerHTML = `
+                <button onclick="startGame(1)" class="bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs shadow">Level 1 🌟</button>
+                <button onclick="startGame(2)" class="bg-purple-600 hover:bg-purple-500 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs shadow">Level 2 🚀</button>
+            `;
             overlay.classList.remove('hidden');
         }
+
+        // Initialize display on load
+        updateBestDisplay();
     </script>
 </body>
 </html>

@@ -936,12 +936,15 @@ def arcade_math_monster(request, profile_id):
 
 def arcade_memory_match(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
-    hs = ArcadeHighScore.objects.filter(child=profile, game_key='memory_match').first()
-    # For memory match, lower moves is better! Default to 999 if no record exists
+    
+    hs_1 = ArcadeHighScore.objects.filter(child=profile, game_key='memory_match_1').first()
+    hs_2 = ArcadeHighScore.objects.filter(child=profile, game_key='memory_match_2').first()
+    
     return render(request, 'chores/arcade_memory.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
-        'high_score': hs.score if hs else 999,
+        'high_score_1': hs_1.score if hs_1 else 999,
+        'high_score_2': hs_2.score if hs_2 else 999,
     })
 
 @require_POST
@@ -1007,32 +1010,37 @@ def arcade_high_scores_view(request, profile_id):
     })
 
 def parent_arcade_leaderboard(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
     children = Profile.objects.filter(user_type='child')
-    
-    # Define all standard arcade games
-    games = [
-        ('star_dash', 'Star Dash'),
-        ('star_catcher', 'Star Catcher'),
-        ('balloon_pop', 'Balloon Pop'),
-        ('math_monster', 'Math Monster'),
-        ('memory_match', 'Memory Match (Fewest Moves)')
-    ]
     
     # Fetch all database high scores
     all_scores = ArcadeHighScore.objects.select_related('child').all()
     
+    # Dynamically discover unique games present in the database 
+    # (combines game_key and game_title pairs)
+    unique_games = all_scores.values('game_key', 'game_title').distinct()
+    
     # Map (game_key, child_id) -> score object
     score_map = {(s.game_key, s.child_id): s for s in all_scores}
     
-    # Build a structured list of games with each child's score
+    # Build a structured list of dynamically found games with each child's score
     leaderboard_data = []
-    for game_key, game_title in games:
+    for game in unique_games:
+        game_key = game['game_key']
+        game_title = game['game_title']
+        
+        # Check if it's memory match so we know the default fallback score (lower is better)
+        is_memory_match = ('memory' in game_key.lower())
+        default_score = 999 if is_memory_match else '---'
+        
         row = {'game_key': game_key, 'game_title': game_title, 'child_scores': []}
         for child in children:
             score_obj = score_map.get((game_key, child.id))
             row['child_scores'].append({
                 'child': child,
-                'score': score_obj.score if score_obj else ('---' if game_key != 'memory_match' else 999),
+                'score': score_obj.score if score_obj else default_score,
                 'updated_at': score_obj.updated_at if score_obj else None
             })
         leaderboard_data.append(row)
