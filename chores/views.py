@@ -352,6 +352,7 @@ def parent_login(request):
         
         if parent_profile:
             request.session['is_parent_authenticated'] = True
+            request.session['parent_profile_id'] = parent_profile.id
             return redirect('parent_dashboard')
         else:
             error = "Incorrect PIN. Try again."
@@ -367,6 +368,16 @@ def parent_logout(request):
 def parent_dashboard(request):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
+
+    parent_profile_id = request.session.get('parent_profile_id')
+    if not parent_profile_id:
+        parent_profile = Profile.objects.filter(user_type='parent').first()
+        if parent_profile:
+            parent_profile_id = parent_profile.id
+            request.session['parent_profile_id'] = parent_profile_id
+
+    print("profile")
+    print(parent_profile_id)
         
     today = timezone.localdate()
     python_wd = today.weekday()
@@ -442,6 +453,7 @@ def parent_dashboard(request):
         'profiles': Profile.objects.all(),
         'quiz_questions': QuizQuestion.objects.all(),
         'coin_items': CoinStoreItem.objects.all(),
+        'parent_profile_id': parent_profile_id
     })
 
 
@@ -879,14 +891,21 @@ def delete_coin_store_item(request, item_id):
 
 
 def arcade_hub(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
+    
+    if profile.user_type == 'parent':
+        back_url = reverse('parent_dashboard')
+    else:
+        back_url = reverse('child_dashboard', args=[profile.id])
+        
     return render(request, 'chores/arcade_hub.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
+        'back_url': back_url,
     })
 
 def arcade_star_dash(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     hs = ArcadeHighScore.objects.filter(child=profile, game_key='star_dash').first()
     return render(request, 'chores/arcade_dash.html', {
         'profile': profile,
@@ -895,7 +914,7 @@ def arcade_star_dash(request, profile_id):
     })
 
 def arcade_star_catcher(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     hs = ArcadeHighScore.objects.filter(child=profile, game_key='star_catcher').first()
     return render(request, 'chores/arcade_catcher.html', {
         'profile': profile,
@@ -917,7 +936,7 @@ def arcade_bonus(request, profile_id):
     return JsonResponse({'status': 'success', 'new_balance': profile.get_coin_balance()})
 
 def arcade_balloon_pop(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     hs = ArcadeHighScore.objects.filter(child=profile, game_key='balloon_pop').first()
     return render(request, 'chores/arcade_balloon.html', {
         'profile': profile,
@@ -926,7 +945,7 @@ def arcade_balloon_pop(request, profile_id):
     })
 
 def arcade_math_monster(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     hs = ArcadeHighScore.objects.filter(child=profile, game_key='math_monster').first()
     return render(request, 'chores/arcade_math.html', {
         'profile': profile,
@@ -935,7 +954,7 @@ def arcade_math_monster(request, profile_id):
     })
 
 def arcade_memory_match(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     
     hs_1 = ArcadeHighScore.objects.filter(child=profile, game_key='memory_match_1').first()
     hs_2 = ArcadeHighScore.objects.filter(child=profile, game_key='memory_match_2').first()
@@ -949,7 +968,7 @@ def arcade_memory_match(request, profile_id):
 
 @require_POST
 def submit_arcade_score(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     try:
         data = json.loads(request.body)
         game_key = data.get('game_key')
@@ -1000,20 +1019,79 @@ def submit_arcade_score(request, profile_id):
     })
 
 def arcade_high_scores_view(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
-    scores = ArcadeHighScore.objects.filter(child=profile).order_by('-updated_at')
+    profile = get_object_or_404(Profile, id=profile_id)
     
-    return render(request, 'chores/arcade_scores.html', {
-        'profile': profile,
-        'scores': scores,
-        'coin_balance': profile.get_coin_balance(),
-    })
+    if profile.user_type == 'parent':
+        dashboard_url = reverse('parent_dashboard')
+    else:
+        dashboard_url = reverse('child_dashboard', args=[profile.id])
+        
+    config = ParentNotificationConfig.objects.first()
+    show_shared = config.show_shared_leaderboard if config else True
+    
+    if show_shared or profile.user_type == 'parent':
+        players = Profile.objects.all()
+        all_scores = ArcadeHighScore.objects.select_related('child').all()
+        unique_games = all_scores.values('game_key', 'game_title').distinct()
+        score_map = {(s.game_key, s.child_id): s for s in all_scores}
+        
+        leaderboard_data = []
+        for game in unique_games:
+            game_key = game['game_key']
+            game_title = game['game_title']
+            is_memory_match = ('memory' in game_key.lower())
+            default_score = 999 if is_memory_match else '---'
+            
+            # First, gather scores for this game to find the winning benchmark
+            valid_scores = []
+            for player in players:
+                score_obj = score_map.get((game_key, player.id))
+                if score_obj:
+                    valid_scores.append(score_obj.score)
+            
+            # Determine the best score value (lowest for memory, highest for others)
+            best_score = None
+            if valid_scores:
+                best_score = min(valid_scores) if is_memory_match else max(valid_scores)
+            
+            row = {'game_key': game_key, 'game_title': game_title, 'child_scores': []}
+            for player in players:
+                score_obj = score_map.get((game_key, player.id))
+                score_val = score_obj.score if score_obj else default_score
+                
+                # Check if this player holds the top record
+                is_leader = (best_score is not None and score_val == best_score)
+                
+                row['child_scores'].append({
+                    'child': player,
+                    'score': score_val,
+                    'is_leader': is_leader, # <-- Flag leader
+                    'updated_at': score_obj.updated_at if score_obj else None
+                })
+            leaderboard_data.append(row)
+            
+        return render(request, 'chores/arcade_leaderboard.html', {
+            'profile': profile,
+            'coin_balance': profile.get_coin_balance(),
+            'leaderboard_data': leaderboard_data,
+            'dashboard_url': dashboard_url,
+            'is_shared_view': True,
+        })
+    else:
+        scores = ArcadeHighScore.objects.filter(child=profile).order_by('-updated_at')
+        return render(request, 'chores/arcade_scores.html', {
+            'profile': profile,
+            'scores': scores,
+            'coin_balance': profile.get_coin_balance(),
+            'dashboard_url': dashboard_url,
+            'is_shared_view': False,
+        })
 
 def parent_arcade_leaderboard(request):
     if not request.session.get('is_parent_authenticated'):
         return redirect('parent_login')
         
-    children = Profile.objects.filter(user_type='child')
+    children = Profile.objects.filter()
     
     # Fetch all database high scores
     all_scores = ArcadeHighScore.objects.select_related('child').all()
@@ -1045,7 +1123,7 @@ def parent_arcade_leaderboard(request):
             })
         leaderboard_data.append(row)
 
-    return render(request, 'chores/parent_leaderboard.html', {
+    return render(request, 'chores/arcade_leaderboard.html', {
         'children': children,
         'leaderboard_data': leaderboard_data,
     })
@@ -1099,7 +1177,7 @@ def pet_action_clean(request, profile_id):
     })
 
 def arcade_number_runner(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     
     # Fetch high score from database
     high_score_obj = ArcadeHighScore.objects.filter(child=profile, game_key='number_runner').first()
@@ -1112,7 +1190,7 @@ def arcade_number_runner(request, profile_id):
     })
 
 def arcade_fireworks(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     hs = ArcadeHighScore.objects.filter(child=profile, game_key='star_fireworks').first()
     return render(request, 'chores/arcade_fireworks.html', {
         'profile': profile,
@@ -1121,7 +1199,7 @@ def arcade_fireworks(request, profile_id):
     })
 
 def arcade_number_jump(request, profile_id):
-    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    profile = get_object_or_404(Profile, id=profile_id)
     hs = ArcadeHighScore.objects.filter(child=profile, game_key='number_jump').first()
     return render(request, 'chores/arcade_number_jump.html', {
         'profile': profile,
@@ -1142,6 +1220,7 @@ def update_notifications(request):
         config.notify_chore_waiting = 'notify_chore_waiting' in request.POST
         config.notify_reward_requested = 'notify_reward_requested' in request.POST
         config.notify_quiz_completed = 'notify_quiz_completed' in request.POST
+        config.show_shared_leaderboard = 'show_shared_leaderboard' in request.POST
         config.save()
         
     return redirect('management_hub')

@@ -262,6 +262,8 @@ class ParentNotificationConfig(models.Model):
     notify_chore_waiting = models.BooleanField(default=True, help_text="Notify when a child requests chore approval")
     notify_reward_requested = models.BooleanField(default=True, help_text="Notify when a child requests a reward")
     notify_quiz_completed = models.BooleanField(default=False, help_text="Notify on quiz activity")
+
+    show_shared_leaderboard = models.BooleanField(default=True, help_text="Allow children to see each other's scores in the arcade")
     
     def __str__(self):
         return f"Notification Config for {self.parent.name}"

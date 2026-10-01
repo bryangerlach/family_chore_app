@@ -8,10 +8,9 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-start p-6">
 
-    <!-- Top Header -->
     <div class="max-w-4xl w-full mx-auto flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
-        <a href="{% url 'parent_dashboard' %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
-            <span>←</span> Back to Parent Dashboard
+        <a href="{{ dashboard_url }}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Back to Dashboard
         </a>
         <div class="flex items-center gap-3">
             <span class="font-bold text-amber-400">🏆 Family Arcade Leaderboard</span>
@@ -31,8 +30,18 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {% for item in game.child_scores %}
-                        <div class="bg-slate-900/80 border border-slate-700/60 p-4 rounded-xl flex flex-col justify-between">
-                            <span class="font-bold text-indigo-400 text-sm mb-2">{{ item.child.name }}</span>
+                        <div class="bg-slate-900/80 border {% if item.is_leader %}border-yellow-500/80 shadow-lg shadow-yellow-500/10{% else %}border-slate-700/60{% endif %} p-4 rounded-xl flex flex-col justify-between relative">
+                            
+                            <!-- Leader Star Badge -->
+                            {% if item.is_leader and item.score != '---' %}
+                                <span class="absolute -top-2.5 -right-2 bg-yellow-500 text-slate-950 font-extrabold text-xs px-2 py-0.5 rounded-full shadow flex items-center gap-1">
+                                    ⭐ Leader
+                                </span>
+                            {% endif %}
+
+                            <span class="font-bold text-indigo-400 text-sm mb-2 flex items-center gap-2">
+                                <span>{{ item.child.emoji }}</span> {{ item.child.name }}
+                            </span>
                             <div class="flex items-baseline justify-between">
                                 <span class="text-xs text-slate-400">High Score:</span>
                                 <span class="bg-amber-500/20 border border-amber-500/40 text-amber-300 font-extrabold px-3 py-1 rounded-lg text-base">
