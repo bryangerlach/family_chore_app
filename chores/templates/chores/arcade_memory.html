@@ -95,10 +95,13 @@
             let icons = (currentLevel === 2) ? level2Icons : level1Icons;
             let totalPairs = icons.length;
 
-            if (lockBoard || card.classList.contains('matched') || flipped.includes(index)) return;
+            // Check if the card is already flipped by comparing its index in the array of objects
+            if (lockBoard || card.classList.contains('matched') || flipped.some(f => f.index === index)) return;
+            
             card.innerText = icon;
             card.classList.add('bg-slate-700', 'border-cyan-500');
             flipped.push({ index, icon, card });
+            
             if (flipped.length === 2) {
                 moves++;
                 movesDisplay.innerText = moves;
@@ -107,6 +110,11 @@
                     matchedPairs++;
                     pairsDisplay.innerText = `${matchedPairs} / ${totalPairs}`;
                     if (typeof playSound === 'function') playSound('correct');
+                    
+                    // Mark cards as matched so they can't be clicked again
+                    flipped[0].card.classList.add('matched');
+                    flipped[1].card.classList.add('matched');
+
                     flipped = [];
                     lockBoard = false;
                     if (matchedPairs === totalPairs) endGame();
