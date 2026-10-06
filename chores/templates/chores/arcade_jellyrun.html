@@ -1,0 +1,297 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade - Jellystar Run 2048</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4">
+    <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
+        <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2"><span>←</span> Back to Arcade</a>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">🪙 {{ coin_balance }} Coins</span>
+            <span class="font-bold text-amber-400">🧊 Jellystar Run 2048</span>
+        </div>
+    </div>
+    
+    <div class="flex flex-col items-center my-auto w-full max-w-2xl">
+        <div class="relative bg-slate-950 border-2 border-amber-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
+            <canvas id="jellyCanvas" class="w-full h-full block"></canvas>
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <h1 class="text-3xl font-extrabold text-amber-400 mb-2">🧊 Jellystar Run 2048 🧊</h1>
+                <p class="text-slate-300 text-sm mb-6 max-w-xs">Use Keyboard Arrows/A-D, or the on-screen buttons below to steer your block, merge matching numbers, and reach 2048!</p>
+                <button onclick="startGame()" class="bg-amber-600 hover:bg-amber-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">Start Game 🚀</button>
+            </div>
+        </div>
+
+        <div class="flex justify-between w-full mt-4 gap-4">
+            <button onclick="movePlayer(-1)" class="flex-1 bg-slate-800 hover:bg-slate-700 active:bg-amber-600 border border-slate-700 text-slate-100 font-extrabold text-2xl py-4 rounded-2xl shadow-lg transition active:scale-95">
+                ◀️ LEFT
+            </button>
+            <button onclick="movePlayer(1)" class="flex-1 bg-slate-800 hover:bg-slate-700 active:bg-amber-600 border border-slate-700 text-slate-100 font-extrabold text-2xl py-4 rounded-2xl shadow-lg transition active:scale-95">
+                RIGHT ▶️
+            </button>
+        </div>
+
+        <div class="flex justify-between w-full mt-3 px-2 text-xs text-slate-400 font-bold">
+            <span>Score: <span id="scoreDisplay" class="text-slate-100">0</span></span>
+            <span>High Score: <span id="highScoreDisplay" class="text-yellow-400">{{ high_score|default:0 }}</span></span>
+            <span>Highest Block: <span id="maxBlockDisplay" class="text-amber-400">2</span></span>
+        </div>
+    </div>
+
+    <div class="text-xs text-slate-500 text-center">Family Chore Arcade • Database Trophy Room</div>
+
+    <script>
+        const canvas = document.getElementById('jellyCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('gameOverlay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const maxBlockDisplay = document.getElementById('maxBlockDisplay');
+        
+        canvas.width = 800; 
+        canvas.height = 400;
+
+        let gameRunning = false, score = 0, gameSpeed = 3.5, frameCount = 0;
+        let highScore = {{ high_score|default:0 }};
+        let maxBlock = 2;
+        let lastTime = 0;
+
+        const lanes = [266, 400, 533];
+        let player = {
+            laneIndex: 1,
+            x: 400,
+            y: 300,
+            size: 50,
+            value: 2,
+            color: '#3b82f6'
+        };
+
+        let obstacles = [];
+
+        const numberColors = {
+            2: '#3b82f6', 4: '#60a5fa', 8: '#f97316', 16: '#fb923c',
+            32: '#ef4444', 64: '#f87171', 128: '#eab308', 256: '#facc15',
+            512: '#10b981', 1024: '#34d399', 2048: '#a855f7'
+        };
+
+        function movePlayer(direction) {
+            if (!gameRunning) return;
+            let newIndex = player.laneIndex + direction;
+            if (newIndex >= 0 && newIndex < lanes.length) {
+                player.laneIndex = newIndex;
+                if (typeof playSound === 'function') playSound('click');
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') movePlayer(-1);
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') movePlayer(1);
+        });
+
+        let touchStartX = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (!gameRunning) return;
+            let diffX = e.changedTouches[0].clientX - touchStartX;
+            if (Math.abs(diffX) > 25) {
+                if (diffX < 0) movePlayer(-1);
+                else movePlayer(1);
+            }
+        }, { passive: true });
+
+        function startGame() {
+            overlay.classList.add('hidden');
+            score = 0; 
+            gameSpeed = 3.5;
+            frameCount = 0;
+            player.value = 2;
+            player.laneIndex = 1;
+            maxBlock = 2;
+            obstacles = [];
+            lastTime = performance.now();
+            gameRunning = true;
+            maxBlockDisplay.innerText = maxBlock;
+
+            requestAnimationFrame(updateGame);
+        }
+
+        function endGame() {
+            gameRunning = false;
+
+            fetch("{% url 'submit_arcade_score' profile.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    game_key: 'jelly_run',
+                    game_title: 'Jellystar Run 2048',
+                    score: score,
+                    is_lower_better: false
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    highScore = data.high_score;
+                    highScoreDisplay.innerText = highScore;
+
+                    if (data.new_balance !== undefined) {
+                        const badge = document.querySelector('span.bg-yellow-500\\/20');
+                        if (badge) badge.innerText = `🪙 ${data.new_balance} Coins`;
+                    }
+
+                    if (data.earned_bonus) {
+                        overlay.querySelector('h1').innerText = "New High Score! +1 🪙 🎉";
+                    } else {
+                        overlay.querySelector('h1').innerText = "Game Over! 🧊";
+                    }
+                }
+            });
+
+            overlay.querySelector('button').innerText = "Play Again 🔄";
+            overlay.classList.remove('hidden');
+        }
+
+        function spawnObstacles() {
+            let lane = Math.floor(Math.random() * 3);
+            let rand = Math.random();
+            let val = 2;
+            let isBarrier = false;
+
+            if (rand < 0.25) {
+                isBarrier = true;
+            } else if (rand < 0.6) {
+                val = player.value;
+            } else {
+                val = Math.random() < 0.5 ? 2 : 4;
+            }
+
+            obstacles.push({
+                lane: lane,
+                y: -60,
+                size: 50,
+                value: val,
+                isBarrier: isBarrier
+            });
+        }
+
+        function updateGame(currentTime) {
+            if (!gameRunning) return;
+            
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            const fpsScale = dt * 60;
+
+            frameCount += fpsScale;
+            score += 1;
+            gameSpeed = 3.5 + Math.floor(score / 300) * 0.5;
+
+            ctx.fillStyle = '#020617'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 4;
+            lanes.forEach(lx => {
+                ctx.beginPath();
+                ctx.moveTo(lx - 50, 0);
+                ctx.lineTo(lx - 20, canvas.height);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(lx + 50, 0);
+                ctx.lineTo(lx + 20, canvas.height);
+                ctx.stroke();
+            });
+
+            if (frameCount % 75 < fpsScale) {
+                spawnObstacles();
+            }
+
+            let targetX = lanes[player.laneIndex];
+            player.x += (targetX - player.x) * (0.25 * fpsScale);
+            player.y = 310;
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.y += gameSpeed * fpsScale;
+
+                let obsX = lanes[obs.lane];
+
+                if (obs.isBarrier) {
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.fillRect(obsX - obs.size/2, obs.y, obs.size, obs.size);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 22px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('❌', obsX, obs.y + 32);
+                } else {
+                    ctx.fillStyle = numberColors[obs.value] || '#a855f7';
+                    ctx.fillRect(obsX - obs.size/2, obs.y, obs.size, obs.size);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 20px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(obs.value, obsX, obs.y + 32);
+                }
+
+                if (
+                    obs.y + obs.size > player.y &&
+                    obs.y < player.y + player.size &&
+                    obs.lane === player.laneIndex
+                ) {
+                    if (obs.isBarrier) {
+                        if (typeof playSound === 'function') playSound('incorrect');
+                        endGame();
+                        return;
+                    } else {
+                        if (obs.value === player.value) {
+                            player.value *= 2;
+                            score += player.value * 10;
+                            if (player.value > maxBlock) {
+                                maxBlock = player.value;
+                                maxBlockDisplay.innerText = maxBlock;
+                            }
+                            if (typeof playSound === 'function') playSound('correct');
+                            obstacles.splice(i, 1);
+                        } else if (obs.value < player.value) {
+                            score += 10;
+                            obstacles.splice(i, 1);
+                        } else {
+                            if (typeof playSound === 'function') playSound('incorrect');
+                            endGame();
+                            return;
+                        }
+                    }
+                }
+
+                if (obs.y > canvas.height) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            ctx.fillStyle = numberColors[player.value] || '#a855f7';
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.shadowBlur = 15;
+            ctx.fillRect(player.x - player.size/2, player.y, player.size, player.size);
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(player.value, player.x, player.y + 32);
+
+            scoreDisplay.innerText = score;
+            requestAnimationFrame(updateGame);
+        }
+    </script>
+</body>
+</html>

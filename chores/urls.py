@@ -78,6 +78,7 @@ urlpatterns = [
     path('child/<int:profile_id>/arcade/number-runner/', views.arcade_number_runner, name='arcade_number_runner'),
     path('child/<int:profile_id>/arcade/star-fireworks/', views.arcade_fireworks, name='arcade_star_fireworks'),
     path('child/<int:profile_id>/arcade/number-jump/', views.arcade_number_jump, name='arcade_number_jump'),
+    path('child/<int:profile_id>/arcade/jelly-run/', views.arcade_jelly_run, name='arcade_jelly_run'),
     path('parent/notifications/update/', views.update_notifications, name='update_notifications'),
 ]
 

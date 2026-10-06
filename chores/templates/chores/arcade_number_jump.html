@@ -74,8 +74,9 @@
 
         let gameRunning = false;
         let maxHeight = 0;
-        let currentNumberVal = 0; // Starts at 0!
+        let currentNumberVal = 0;
         let highScore = {{ high_score|default:0 }};
+        let lastTime = 0;
 
         let player = {
             x: 375,
@@ -138,7 +139,7 @@
 
         function initPlatforms() {
             platforms = [
-                { x: 350, y: 350, width: 110, height: 16 } // starting platform
+                { x: 350, y: 350, width: 110, height: 16 }
             ];
             monsters = [];
             upgradeOrbs = [];
@@ -159,7 +160,6 @@
                 };
                 platforms.push(p);
 
-                // Rare occasional monster (~6% chance)
                 if (genY < 150 && Math.random() < 0.06) {
                     monsters.push({
                         x: newX + width / 2 - 20,
@@ -170,7 +170,6 @@
                     });
                 }
 
-                // Sparse collectible +10 character (~10% chance so it's a nice treat)
                 if (genY < 200 && Math.random() < 0.10) {
                     upgradeOrbs.push({
                         x: newX + width / 2 - 20,
@@ -189,13 +188,14 @@
         function startGame() {
             overlay.classList.add('hidden');
             maxHeight = 0;
-            currentNumberVal = 0; // Starts at 0!
+            currentNumberVal = 0;
             cameraY = 0;
             player.x = 375;
             player.y = 260;
             player.vy = player.jumpPower;
             player.vx = 0;
             initPlatforms();
+            lastTime = performance.now();
             gameRunning = true;
             requestAnimationFrame(updateGame);
         }
@@ -238,25 +238,25 @@
             overlay.classList.remove('hidden');
         }
 
-        function updateGame() {
+        function updateGame(currentTime) {
             if (!gameRunning) return;
 
-            // Physics
-            player.vy += player.gravity;
-            player.y += player.vy;
-            player.x += player.vx;
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            const fpsScale = dt * 60;
 
-            // Screen wrapping horizontally
+            player.vy += player.gravity * fpsScale;
+            player.y += player.vy * fpsScale;
+            player.x += player.vx * fpsScale;
+
             if (player.x + player.width < 0) player.x = canvas.width;
             if (player.x > canvas.width) player.x = 0;
 
-            // Camera tracking upwards
             let targetCameraY = player.y - 180;
             if (targetCameraY < cameraY) {
                 cameraY = targetCameraY;
             }
 
-            // Calculate height score
             let currentHeight = Math.max(0, Math.floor((350 - player.y) / 10));
             if (currentHeight > maxHeight) {
                 maxHeight = currentHeight;
@@ -265,14 +265,14 @@
             scoreDisplay.innerText = maxHeight;
             currentNumberDisplay.innerText = currentNumberVal;
 
-            // Platform collision (only when falling)
             if (player.vy > 0) {
                 platforms.forEach(p => {
+                    let prevY = player.y - (player.vy * fpsScale);
                     if (
                         player.x + player.width - 10 > p.x &&
                         player.x + 10 < p.x + p.width &&
-                        player.y + player.height >= p.y &&
-                        player.y + player.height - player.vy <= p.y + 12
+                        prevY + player.height <= p.y &&
+                        player.y + player.height >= p.y
                     ) {
                         player.vy = player.jumpPower; 
                         if (typeof playSound === 'function') playSound('correct');
@@ -280,7 +280,6 @@
                 });
             }
 
-            // Catching +10 Character Orbs
             upgradeOrbs.forEach(orb => {
                 if (!orb.collected) {
                     if (
@@ -296,7 +295,6 @@
                 }
             });
 
-            // Monster Collision Checking
             monsters.forEach(m => {
                 if (!m.alive) return;
 
@@ -306,7 +304,7 @@
                     player.y + player.height > m.y &&
                     player.y < m.y + m.height
                 ) {
-                    if (player.vy > 0 && player.y + player.height - player.vy <= m.y + 16) {
+                    if (player.vy > 0) {
                         m.alive = false;
                         player.vy = player.jumpPower * 0.9;
                         currentNumberVal += 20; 
@@ -317,7 +315,6 @@
                 }
             });
 
-            // Generate new platforms & items safely ahead as you climb
             let topPlatform = platforms[platforms.length - 1];
             if (topPlatform.y > cameraY - 200) {
                 let width = 90;
@@ -354,20 +351,17 @@
                 }
             }
 
-            // Game over if player falls below screen view
             if (player.y > cameraY + canvas.height + 60) {
                 gameOver();
                 return;
             }
 
-            // Render Graphics
             ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.save();
             ctx.translate(0, -cameraY);
 
-            // Draw Platforms
             platforms.forEach(p => {
                 ctx.fillStyle = '#0ea5e9';
                 ctx.beginPath();
@@ -378,7 +372,6 @@
                 ctx.stroke();
             });
 
-            // Draw Character-Styled +10 Collectibles (with goofy eyes!)
             upgradeOrbs.forEach(orb => {
                 if (!orb.collected) {
                     let orbCenterX = orb.x + orb.width / 2;
@@ -392,7 +385,6 @@
                 }
             });
 
-            // Draw Monsters
             monsters.forEach(m => {
                 if (!m.alive) return;
                 ctx.fillStyle = '#f43f5e';
@@ -408,7 +400,6 @@
                 ctx.fillRect(m.x + 26, m.y + 10, 3, 3);
             });
 
-            // Draw Player Character (Displaying current dynamic number: 0, 10, 20, 30...)
             let renderX = player.x + player.width / 2;
             let renderY = player.y + 40;
 

@@ -10,7 +10,6 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4">
 
-    <!-- Top Navigation Header -->
     <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
         <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
             <span>←</span> Back to Arcade
@@ -23,15 +22,13 @@
         </div>
     </div>
 
-    <!-- Game Arena -->
     <div class="flex flex-col items-center my-auto w-full max-w-2xl">
         <div class="relative bg-slate-950 border-2 border-indigo-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
             <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
             
-            <!-- Start / Game Over Overlay -->
             <div id="gameOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
                 <h1 class="text-3xl font-extrabold text-indigo-400 mb-2">⭐ Star Dash ⭐</h1>
-                <p class="text-slate-300 text-sm mb-6 max-w-xs">Tap screen or press <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">SPACE</kbd> or <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">TAP</kbd> to jump over obstacles!</p>
+                <p class="text-slate-300 text-sm mb-6 max-w-xs">Leap across reachable platforms, choose your path, and watch your character flip in the air!</p>
                 <button onclick="startGame()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-8 py-3 rounded-2xl shadow-lg transition transform hover:scale-105">
                     Play Game 🚀
                 </button>
@@ -43,12 +40,10 @@
         </div>
     </div>
 
-    <!-- Footer -->
     <div class="text-xs text-slate-500 text-center">
-        Family Chore Arcade • Database Trophy Room
+        Family Chore Arcade • Geometry Dash Style
     </div>
 
-    <!-- Game Script -->
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -56,24 +51,24 @@
         const scoreDisplay = document.getElementById('scoreDisplay');
         const highScoreDisplay = document.getElementById('highScoreDisplay');
 
-        // Set canvas internal resolution for crisp rendering
         canvas.width = 800;
         canvas.height = 400;
 
         let gameRunning = false;
         let score = 0;
         let highScore = {{ high_score|default:0 }};
+        let lastTime = 0;
 
-        // Player object
         let player = {
             x: 80,
             y: 280,
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             vy: 0,
-            gravity: 0.8,
-            jumpPower: -13,
-            isJumping: false
+            gravity: 0.85,
+            jumpPower: -13.5,
+            isJumping: false,
+            rotation: 0
         };
 
         let obstacles = [];
@@ -92,7 +87,6 @@
             }
         }
 
-        // Controls
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp') {
                 e.preventDefault();
@@ -114,6 +108,8 @@
             player.y = 280;
             player.vy = 0;
             player.isJumping = false;
+            player.rotation = 0;
+            lastTime = performance.now();
             gameRunning = true;
             requestAnimationFrame(updateGame);
         }
@@ -125,7 +121,6 @@
                 playSound('incorrect');
             }
 
-            // Submit score to Django database via AJAX
             fetch("{% url 'submit_arcade_score' profile.id %}", {
                 method: 'POST',
                 headers: {
@@ -164,12 +159,17 @@
             overlay.classList.remove('hidden');
         }
         
-        function updateGame() {
+        function updateGame(currentTime) {
             if (!gameRunning) return;
+
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            const fpsScale = dt * 60;
 
             ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Draw Ground Line
             ctx.strokeStyle = '#6366f1';
             ctx.lineWidth = 4;
             ctx.beginPath();
@@ -177,55 +177,175 @@
             ctx.lineTo(canvas.width, 320);
             ctx.stroke();
 
-            player.vy += player.gravity;
-            player.y += player.vy;
+            // Apply Gravity & Update Position
+            player.vy += player.gravity * fpsScale;
+            player.y += player.vy * fpsScale;
 
-            if (player.y > 280) {
-                player.y = 280;
+            let groundLevel = 280; 
+            if (player.y >= groundLevel) {
+                player.y = groundLevel;
                 player.vy = 0;
                 player.isJumping = false;
+                player.rotation = 0; // Snap upright on ground
+            } else {
+                // Spin/flip while airborne
+                player.rotation += 0.12 * fpsScale;
             }
 
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(player.x, player.y, player.width, player.height);
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(player.x + 24, player.y + 8, 6, 6);
+            // Spawn obstacles (Max platform height is 230, keeping it fully reachable from the 280 ground level)
+            spawnTimer += fpsScale;
+            if (spawnTimer > Math.max(55, 120 - Math.floor(score / 8))) {
+                let pattern = Math.floor(Math.random() * 4);
 
-            spawnTimer++;
-            if (spawnTimer > Math.max(40, 100 - Math.floor(score / 10))) {
-                obstacles.push({
-                    x: canvas.width,
-                    y: 280,
-                    width: 30,
-                    height: 40,
-                    color: '#f43f5e'
-                });
+                if (pattern === 0) {
+                    // Spike with a low reachable platform above it
+                    obstacles.push({
+                        x: canvas.width,
+                        y: 290,
+                        width: 35,
+                        height: 30,
+                        type: 'spike'
+                    });
+                    obstacles.push({
+                        x: canvas.width,
+                        y: 225,
+                        width: 140,
+                        height: 20,
+                        type: 'platform'
+                    });
+                } else if (pattern === 1) {
+                    // Split Path (Low ground spike vs Reachable bridge platform at y: 220)
+                    obstacles.push({
+                        x: canvas.width,
+                        y: 290,
+                        width: 70,
+                        height: 30,
+                        type: 'spike'
+                    });
+                    obstacles.push({
+                        x: canvas.width,
+                        y: 220,
+                        width: 180,
+                        height: 20,
+                        type: 'platform'
+                    });
+                } else if (pattern === 2) {
+                    // Stepping stones over a floor spike (all within safe jump height)
+                    obstacles.push({
+                        x: canvas.width + 20,
+                        y: 290,
+                        width: 50,
+                        height: 30,
+                        type: 'spike'
+                    });
+                    obstacles.push({
+                        x: canvas.width,
+                        y: 235,
+                        width: 60,
+                        height: 18,
+                        type: 'platform'
+                    });
+                    obstacles.push({
+                        x: canvas.width + 100,
+                        y: 215,
+                        width: 60,
+                        height: 18,
+                        type: 'platform'
+                    });
+                } else {
+                    // Extended mid-height bridge platform
+                    obstacles.push({
+                        x: canvas.width,
+                        y: 220,
+                        width: 220,
+                        height: 20,
+                        type: 'platform'
+                    });
+                    obstacles.push({
+                        x: canvas.width + 60,
+                        y: 290,
+                        width: 90,
+                        height: 30,
+                        type: 'spike'
+                    });
+                }
                 spawnTimer = 0;
             }
 
+            // Update & Check Collisions with Obstacles
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 let obs = obstacles[i];
-                obs.x -= gameSpeed;
+                obs.x -= gameSpeed * fpsScale;
 
-                ctx.fillStyle = obs.color;
-                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                if (obs.type === 'spike') {
+                    // Draw Spike
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x, 320);
+                    ctx.lineTo(obs.x + obs.width / 2, 320 - obs.height);
+                    ctx.lineTo(obs.x + obs.width, 320);
+                    ctx.closePath();
+                    ctx.fill();
 
-                if (
-                    player.x < obs.x + obs.width &&
-                    player.x + player.width > obs.x &&
-                    player.y < obs.y + obs.height &&
-                    player.y + player.height > obs.y
-                ) {
-                    gameOver();
-                    return;
+                    // Spike Collision Hitbox
+                    if (
+                        player.x + player.width - 6 > obs.x &&
+                        player.x + 6 < obs.x + obs.width &&
+                        player.y + player.height > 320 - obs.height
+                    ) {
+                        gameOver();
+                        return;
+                    }
+                } else {
+                    // Draw Platform
+                    ctx.fillStyle = '#0ea5e9';
+                    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+
+                    // Platform Top-Landing Collision Check
+                    let prevPlayerY = player.y - (player.vy * fpsScale);
+                    if (
+                        player.x + player.width - 8 > obs.x &&
+                        player.x + 8 < obs.x + obs.width &&
+                        prevPlayerY + player.height <= obs.y + 8 &&
+                        player.y + player.height >= obs.y &&
+                        player.vy >= 0
+                    ) {
+                        player.y = obs.y - player.height;
+                        player.vy = 0;
+                        player.isJumping = false;
+                        player.rotation = 0; // Snap upright when landing
+                    } 
+                    // Side collision check
+                    else if (
+                        player.x + player.width > obs.x + 4 &&
+                        player.x < obs.x + obs.width - 4 &&
+                        player.y + player.height > obs.y + 4 &&
+                        player.y < obs.y + obs.height
+                    ) {
+                        gameOver();
+                        return;
+                    }
                 }
 
                 if (obs.x + obs.width < 0) {
                     obstacles.splice(i, 1);
                     score += 10;
-                    gameSpeed += 0.05;
+                    gameSpeed += 0.04;
                 }
             }
+
+            // Draw Flipping Player Cube
+            ctx.save();
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+            ctx.rotate(player.rotation);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(4, -10, 6, 6); // Eye
+            ctx.restore();
 
             scoreDisplay.innerText = score;
             requestAnimationFrame(updateGame);

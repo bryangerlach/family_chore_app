@@ -53,7 +53,7 @@
                     ◀️ Left
                 </button>
                 <button ontouchstart="startMove('right')" ontouchend="stopMove('right')" onmousedown="startMove('right')" onmouseup="stopMove('right')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 active:bg-cyan-600 text-slate-200 font-extrabold px-6 py-4 rounded-2xl shadow-lg text-lg transition">
-                    Right ▶️
+                    Right ▶️️
                 </button>
             </div>
             <button ontouchstart="jump()" onclick="jump()" class="bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white font-extrabold px-8 py-4 rounded-2xl shadow-lg text-lg transition flex items-center gap-2">
@@ -90,13 +90,9 @@
         let currentLevel = 1;
         let highScore = {{ high_score|default:0 }};
         const maxLevels = 5;
+        let lastTime = 0;
 
-        // Extended sound synthesizer helper in case sound_effects.js uses standard playSound function
         function playCustomSound(type) {
-            if (typeof playSound === 'function') {
-                // If the external library handles standard tags, we can check or wrap them. 
-                // Alternatively, let's play direct synthesized Web Audio for our custom types:
-            }
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if (!window.audioCtx) window.audioCtx = new AudioContext();
@@ -143,10 +139,10 @@
                 } 
                 else if (type === 'victory') {
                     osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(523.25, now);        // C5
-                    osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
-                    osc.frequency.setValueAtTime(783.99, now + 0.24); // G5
-                    osc.frequency.setValueAtTime(1046.50, now + 0.36);// C6
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.12);
+                    osc.frequency.setValueAtTime(783.99, now + 0.24);
+                    osc.frequency.setValueAtTime(1046.50, now + 0.36);
                     gain.gain.setValueAtTime(0, now);
                     gain.gain.linearRampToValueAtTime(0.3, now + 0.04);
                     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.75);
@@ -154,7 +150,6 @@
                     osc.stop(now + 0.75);
                 }
                 else {
-                    // Fallback to external playSound if available
                     if (typeof playSound === 'function') playSound(type);
                 }
             } catch (e) {
@@ -209,7 +204,6 @@
             }
         }
 
-        // Helper function to draw goofy eyes on any number character
         function drawGoofyEyes(centerX, centerY) {
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
@@ -256,7 +250,6 @@
                 collected: false
             };
 
-            // Spawn collectible coins
             let coinX = 300;
             while (coinX < finishLineX - 100) {
                 coins.push({
@@ -324,6 +317,7 @@
             currentLevel = 1;
             followers = [];
             loadLevel(currentLevel);
+            lastTime = performance.now();
             gameRunning = true;
             playCustomSound('correct');
             requestAnimationFrame(updateGame);
@@ -361,6 +355,7 @@
             overlayBtn.onclick = () => {
                 overlay.classList.add('hidden');
                 loadLevel(currentLevel);
+                lastTime = performance.now();
                 gameRunning = true;
                 playCustomSound('correct');
                 requestAnimationFrame(updateGame);
@@ -417,14 +412,17 @@
             });
         }
 
-        function updateGame() {
+        function updateGame(currentTime) {
             if (!gameRunning) return;
+
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            const fpsScale = dt * 60;
 
             ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Horizontal Controls & Camera Scrolling with Pipe Side-Collision Blocking
-            let moveSpeed = player.speed;
+            let moveSpeed = player.speed * fpsScale;
             let nextCameraX = cameraX;
 
             if (keys['ArrowLeft'] || keys['KeyA'] || touchMoving.left) {
@@ -434,7 +432,6 @@
                 nextCameraX = Math.min(finishLineX + 50, cameraX + moveSpeed);
             }
 
-            let tentativePlayerWorldX = nextCameraX + player.screenX + player.width / 2;
             let blockedByPipe = false;
 
             obstacles.forEach(obs => {
@@ -457,9 +454,8 @@
                 cameraX = nextCameraX;
             }
 
-            // Vertical Physics
-            player.vy += player.gravity;
-            player.y += player.vy;
+            player.vy += player.gravity * fpsScale;
+            player.y += player.vy * fpsScale;
 
             let playerLeftWorldX = cameraX + player.screenX + 6;
             let playerRightWorldX = cameraX + player.screenX + player.width - 6;
@@ -479,12 +475,13 @@
                 if (obs.type === 'pipe') {
                     let playerBox = { x: player.screenX, y: player.y, width: player.width, height: player.height };
                     let obsBox = { x: obs.x - cameraX, y: obs.y, width: obs.width, height: obs.height };
+                    let prevY = player.y - (player.vy * fpsScale);
 
                     if (
                         player.vy > 0 &&
                         playerBox.x + playerBox.width - 8 > obsBox.x &&
                         playerBox.x + 8 < obsBox.x + obsBox.width &&
-                        playerBox.y + playerBox.height - player.vy <= obsBox.y + 12
+                        prevY + playerBox.height <= obsBox.y + 12
                     ) {
                         groundY = obs.y - player.height;
                     }
@@ -505,7 +502,6 @@
                 positionHistory.pop();
             }
 
-            // Draw Ground Segments with Pits
             ctx.fillStyle = '#1e293b';
             ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 4;
@@ -538,7 +534,6 @@
                 }
             });
 
-            // Draw & Collect Coins
             coins.forEach(coin => {
                 if (!coin.collected) {
                     let coinScreenX = coin.x - cameraX;
@@ -575,7 +570,6 @@
                 }
             });
 
-            // Draw & Collect Key Item
             if (!keyItem.collected) {
                 let keyScreenX = keyItem.x - cameraX;
                 if (keyScreenX > -50 && keyScreenX < canvas.width + 50) {
@@ -600,7 +594,6 @@
                 }
             }
 
-            // Draw Jail Cell at Level End with Goofy Eyes on Trapped Friend
             let jailScreenX = finishLineX - cameraX;
             ctx.fillStyle = '#475569';
             ctx.fillRect(jailScreenX, 240, 60, 80);
@@ -630,11 +623,10 @@
                 }
             }
 
-            // Update & Draw Enemies
             enemies.forEach(en => {
                 if (!en.alive) return;
 
-                en.x += en.vx;
+                en.x += en.vx * fpsScale;
 
                 if (en.x <= en.minX || en.x + en.width >= en.maxX) {
                     en.vx *= -1;
@@ -679,7 +671,8 @@
                         playerBox.y < enemyBox.y + enemyBox.height &&
                         playerBox.y + playerBox.height > enemyBox.y
                     ) {
-                        if (player.vy > 0 && player.y + player.height - player.vy <= enemyBox.y + 15) {
+                        let prevY = player.y - (player.vy * fpsScale);
+                        if (player.vy > 0 && prevY + playerBox.height <= enemyBox.y + 15) {
                             en.alive = false;
                             player.vy = player.jumpPower * 0.7;
                             score += 25;
@@ -693,7 +686,6 @@
                 }
             });
 
-            // Draw Obstacles (Pipes & Spikes)
             obstacles.forEach(obs => {
                 let screenObsX = obs.x - cameraX;
                 if (screenObsX > -100 && screenObsX < canvas.width + 100) {
@@ -730,14 +722,12 @@
                 }
             });
 
-            // Draw Main Character Digit (0) with Goofy Eyes
             ctx.fillStyle = '#22d3ee';
             ctx.font = 'bold 50px monospace';
             ctx.textAlign = 'center';
             ctx.fillText('0', player.screenX + player.width / 2, player.y + 46);
             drawGoofyEyes(player.screenX + player.width / 2, player.y + 25);
 
-            // Draw Number Train Followers with Goofy Eyes & delayed jump tracking
             followers.forEach((num, idx) => {
                 let historyIndex = Math.min((idx + 1) * 15, positionHistory.length - 1);
                 let pastPos = positionHistory[historyIndex] || { x: playerWorldX, y: player.y };
@@ -750,10 +740,11 @@
                 drawGoofyEyes(followerScreenX, pastPos.y + 22);
             });
 
-            // Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
-                p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
+                p.x += p.vx * fpsScale; 
+                p.y += p.vy * fpsScale; 
+                p.alpha -= 0.03 * fpsScale;
                 ctx.fillStyle = p.color;
                 ctx.globalAlpha = Math.max(0, p.alpha);
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();

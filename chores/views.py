@@ -944,6 +944,15 @@ def arcade_balloon_pop(request, profile_id):
         'high_score': hs.score if hs else 0,
     })
 
+def arcade_jelly_run(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id)
+    hs = ArcadeHighScore.objects.filter(child=profile, game_key='jelly_run').first()
+    return render(request, 'chores/arcade_jellyrun.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+        'high_score': hs.score if hs else 0,
+    })
+
 def arcade_math_monster(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id)
     hs = ArcadeHighScore.objects.filter(child=profile, game_key='math_monster').first()

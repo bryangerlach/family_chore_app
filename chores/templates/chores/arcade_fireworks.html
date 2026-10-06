@@ -10,7 +10,6 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 select-none">
 
-    <!-- Top Navigation Header -->
     <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
         <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
             <span>←</span> Back to Arcade
@@ -23,12 +22,10 @@
         </div>
     </div>
 
-    <!-- Game Arena -->
     <div class="flex flex-col items-center my-auto w-full max-w-2xl">
         <div class="relative bg-slate-950 border-2 border-purple-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
             <canvas id="fireworksCanvas" class="w-full h-full block cursor-pointer"></canvas>
             
-            <!-- Start / Victory Overlay -->
             <div id="gameOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-10">
                 <h1 id="overlayTitle" class="text-3xl font-extrabold text-purple-400 mb-2 animate-bounce">🎆 Star Fireworks 🎆</h1>
                 <p id="overlayDesc" class="text-slate-300 text-sm mb-6 max-w-xs">Launch <b>15 fireworks</b> to win! Tap glowing stars, but <b>avoid grey dud rockets</b> 💣!</p>
@@ -45,12 +42,10 @@
         </div>
     </div>
 
-    <!-- Footer -->
     <div class="text-xs text-slate-500 text-center">
         Family Chore Arcade • Target & Dodge Game
     </div>
 
-    <!-- Game Script -->
     <script>
         const canvas = document.getElementById('fireworksCanvas');
         const ctx = canvas.getContext('2d');
@@ -76,6 +71,7 @@
         let particles = [];
         let spawnTimer = 0;
         let timerInterval = null;
+        let lastTime = 0;
 
         function playSoundEffect(type) {
             try {
@@ -100,7 +96,6 @@
                     osc.start(now);
                     osc.stop(now + 0.35);
                 } else {
-                    // Dud hit sound (low buzz)
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(120, now);
                     osc.frequency.linearRampToValueAtTime(60, now + 0.2);
@@ -124,7 +119,6 @@
                 let dist = Math.hypot(clickX - s.x, clickY - s.y);
                 if (dist < s.radius + 20) {
                     if (s.isDud) {
-                        // Hit a dud bomb! Penalty
                         playSoundEffect('dud');
                         createExplosion(s.x, s.y, '#64748b', true);
                         stars.splice(i, 1);
@@ -134,7 +128,6 @@
                             endGame(false, "Boom! Hit too many duds!");
                         }
                     } else {
-                        // Success! Launched a firework
                         playSoundEffect('firework');
                         createExplosion(s.x, s.y, s.color, false);
                         stars.splice(i, 1);
@@ -187,6 +180,7 @@
             scoreDisplay.innerText = `${score} / ${targetGoal}`;
             missedDisplay.innerText = `${missedCount} / ${maxMisses}`;
             timeDisplay.innerText = `${timeLeft}s`;
+            lastTime = performance.now();
             gameRunning = true;
 
             clearInterval(timerInterval);
@@ -240,16 +234,20 @@
             overlay.classList.remove('hidden');
         }
 
-        function updateGame() {
+        function updateGame(currentTime) {
             if (!gameRunning) return;
+
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            const fpsScale = dt * 60;
 
             ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            spawnTimer++;
+            spawnTimer += fpsScale;
             if (spawnTimer > 30) {
                 const colors = ['#f43f5e', '#a855f7', '#38bdf8', '#fbbf24', '#34d399', '#ec4899'];
-                let isDud = Math.random() < 0.25; // 25% chance of spawning a grey dud bomb
+                let isDud = Math.random() < 0.25;
                 stars.push({
                     x: Math.random() * (canvas.width - 80) + 40,
                     y: canvas.height + 40,
@@ -263,14 +261,13 @@
 
             for (let i = stars.length - 1; i >= 0; i--) {
                 let s = stars[i];
-                s.y -= s.speed;
+                s.y -= s.speed * fpsScale;
 
                 ctx.fillStyle = s.color;
                 ctx.font = '36px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(s.isDud ? '💣' : '⭐', s.x, s.y + 12);
 
-                // Consequence for missing a glowing star (off the top of screen)
                 if (s.y + s.radius < 0) {
                     stars.splice(i, 1);
                     if (!s.isDud) {
@@ -285,10 +282,10 @@
 
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.vy += 0.05;
-                p.alpha -= p.decay;
+                p.x += p.vx * fpsScale;
+                p.y += p.vy * fpsScale;
+                p.vy += 0.05 * fpsScale;
+                p.alpha -= p.decay * fpsScale;
 
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, p.alpha);

@@ -45,8 +45,8 @@
 
         let gameRunning = false, score = 0, timeLeft = 30, balloons = [], timerInterval, spawnTimer = 0;
         let highScore = {{ high_score|default:0 }};
+        let lastTime = 0;
 
-        // Handle both click and touch events smoothly for tablets
         function handlePointerInput(clientX, clientY) {
             if (!gameRunning) return;
             const rect = canvas.getBoundingClientRect();
@@ -56,7 +56,6 @@
             for (let i = balloons.length - 1; i >= 0; i--) {
                 let b = balloons[i];
                 let dist = Math.hypot(clickX - b.x, clickY - b.y);
-                // Larger generous hit area (+15px leeway for easy tablet tapping)
                 if (dist < b.radius + 15) {
                     if (b.isBomb) {
                         score = Math.max(0, score - 15);
@@ -82,6 +81,7 @@
         function startGame() {
             overlay.classList.add('hidden');
             score = 0; timeLeft = 30; balloons = []; spawnTimer = 0; gameRunning = true;
+            lastTime = performance.now();
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 timeLeft--;
@@ -95,7 +95,6 @@
             gameRunning = false;
             clearInterval(timerInterval);
 
-            // Submit score to database via AJAX
             fetch("{% url 'submit_arcade_score' profile.id %}", {
                 method: 'POST',
                 headers: {
@@ -132,19 +131,24 @@
             overlay.classList.remove('hidden');
         }
 
-        function updateGame() {
+        function updateGame(currentTime) {
             if (!gameRunning) return;
+
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            const fpsScale = dt * 60;
+
             ctx.fillStyle = '#020617'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            spawnTimer++;
+            spawnTimer += fpsScale;
             if (spawnTimer > 35) {
                 let isBomb = Math.random() < 0.2;
                 balloons.push({
                     x: Math.random() * (canvas.width - 120) + 60,
                     y: canvas.height + 60,
-                    radius: 42, // Much bigger balloons for easy tablet tapping
-                    speed: 1.8 + Math.random() * 2.5,
+                    radius: 42,
+                    speed: (1.8 + Math.random() * 2.5),
                     color: ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'][Math.floor(Math.random() * 5)],
                     isBomb: isBomb
                 });
@@ -153,7 +157,7 @@
 
             for (let i = balloons.length - 1; i >= 0; i--) {
                 let b = balloons[i];
-                b.y -= b.speed;
+                b.y -= b.speed * fpsScale;
                 
                 ctx.fillStyle = b.isBomb ? '#1e293b' : b.color;
                 ctx.beginPath(); 

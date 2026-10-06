@@ -10,7 +10,6 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4">
 
-    <!-- Top Navigation -->
     <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg">
         <a href="{% url 'arcade_hub' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
             <span>←</span> Back to Arcade
@@ -23,12 +22,10 @@
         </div>
     </div>
 
-    <!-- Game Arena -->
     <div class="flex flex-col items-center my-auto w-full max-w-2xl">
         <div class="relative bg-slate-950 border-2 border-amber-500/40 rounded-2xl overflow-hidden shadow-2xl w-full aspect-[2/1]">
             <canvas id="catcherCanvas" class="w-full h-full block cursor-pointer"></canvas>
             
-            <!-- Overlay -->
             <div id="gameOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
                 <h1 class="text-3xl font-extrabold text-amber-400 mb-2">🌟 Star Catcher 🌟</h1>
                 <p class="text-slate-300 text-sm mb-6 max-w-xs">Use <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">←</kbd> <kbd class="bg-slate-800 px-2 py-1 rounded border border-slate-700 text-yellow-300 font-mono">→</kbd> keys or mouse/touch to move the basket and catch stars!</p>
@@ -43,12 +40,10 @@
         </div>
     </div>
 
-    <!-- Footer -->
     <div class="text-xs text-slate-500 text-center">
         Family Chore Arcade • Database Trophy Room
     </div>
 
-    <!-- Catcher Game Script -->
     <script>
         const canvas = document.getElementById('catcherCanvas');
         const ctx = canvas.getContext('2d');
@@ -62,22 +57,20 @@
         let gameRunning = false;
         let score = 0;
         let highScore = {{ high_score|default:0 }};
+        let lastTime = 0;
 
-        // Basket Player
         let basket = {
             x: 350,
             y: 330,
             width: 100,
             height: 30,
-            speed: 8,
-            dx: 0
+            speed: 8
         };
 
         let items = [];
         let spawnTimer = 0;
         let gameSpeed = 3;
 
-        // Controls
         let keys = {};
         window.addEventListener('keydown', (e) => keys[e.code] = true);
         window.addEventListener('keyup', (e) => keys[e.code] = false);
@@ -103,6 +96,7 @@
             gameSpeed = 3;
             spawnTimer = 0;
             basket.x = 350;
+            lastTime = performance.now();
             gameRunning = true;
             requestAnimationFrame(updateGame);
         }
@@ -113,7 +107,6 @@
                 playSound('incorrect');
             }
 
-            // Submit score to Django database via AJAX
             fetch("{% url 'submit_arcade_score' profile.id %}", {
                 method: 'POST',
                 headers: {
@@ -150,31 +143,30 @@
             overlay.classList.remove('hidden');
         }
 
-        function updateGame() {
+        function updateGame(currentTime) {
             if (!gameRunning) return;
 
-            // Keyboard movement
-            if (keys['ArrowLeft'] || keys['KeyA']) basket.x -= basket.speed;
-            if (keys['ArrowRight'] || keys['KeyD']) basket.x += basket.speed;
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            const fpsScale = dt * 60;
 
-            // Boundaries
+            if (keys['ArrowLeft'] || keys['KeyA']) basket.x -= basket.speed * fpsScale;
+            if (keys['ArrowRight'] || keys['KeyD']) basket.x += basket.speed * fpsScale;
+
             if (basket.x < 0) basket.x = 0;
             if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
 
-            // Clear screen
             ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Basket
-            ctx.fillStyle = '#f59e0b'; // amber-500
+            ctx.fillStyle = '#f59e0b';
             ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
             ctx.fillStyle = '#d97706';
             ctx.fillRect(basket.x + 10, basket.y + 5, basket.width - 20, 5);
 
-            // Spawn items (Stars vs Rocks)
-            spawnTimer++;
+            spawnTimer += fpsScale;
             if (spawnTimer > 45) {
-                let isRock = Math.random() < 0.25; // 25% chance of rock
+                let isRock = Math.random() < 0.25;
                 items.push({
                     x: Math.random() * (canvas.width - 30),
                     y: -30,
@@ -185,24 +177,21 @@
                 spawnTimer = 0;
             }
 
-            // Update & Draw Items
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
-                item.y += item.speed;
+                item.y += item.speed * fpsScale;
 
-                // Draw Item
                 if (item.isRock) {
-                    ctx.fillStyle = '#64748b'; // slate-500 (Rock)
+                    ctx.fillStyle = '#64748b';
                     ctx.beginPath();
                     ctx.arc(item.x + 15, item.y + 15, 15, 0, Math.PI * 2);
                     ctx.fill();
                 } else {
-                    ctx.fillStyle = '#fde047'; // yellow-300 (Star)
+                    ctx.fillStyle = '#fde047';
                     ctx.font = '28px sans-serif';
                     ctx.fillText('⭐', item.x, item.y + 25);
                 }
 
-                // Collision detection with basket
                 if (
                     item.x < basket.x + basket.width &&
                     item.x + 30 > basket.x &&
@@ -221,7 +210,6 @@
                     }
                 }
 
-                // Remove if missed off bottom
                 if (item.y > canvas.height) {
                     items.splice(i, 1);
                 }
