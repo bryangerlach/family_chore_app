@@ -36,5 +36,13 @@
             </a>
         </div>
     </div>
+    <script>
+        function sendThemeToFlutter(theme) {
+            if (window.ThemeChannel && typeof theme === 'string' && theme.trim() !== '') {
+                window.ThemeChannel.postMessage(theme);
+            }
+        }
+        sendThemeToFlutter("dark");
+    </script>
 </body>
 </html>
