@@ -165,6 +165,28 @@
                         </a>
                     </div>
                 </div>
+
+                <!-- Sight Words Card spanning both columns -->
+                <div class="col-span-2 bg-slate-800 border border-slate-700/80 p-5 rounded-3xl shadow-xl flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">📚</span>
+                            <div>
+                                <h3 class="font-extrabold text-slate-100 text-lg">Sight Words Practice</h3>
+                                <p class="text-xs text-slate-400">Practice your reading flashcards with audio read-aloud!</p>
+                            </div>
+                        </div>
+                        <a href="{% url 'sight_word_practice' profile.id %}" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-4 py-2 rounded-xl text-sm shadow transition">
+                            Practice Words ✨
+                        </a>
+                    </div>
+                    <div class="border-t border-slate-700/60 pt-3 flex justify-between items-center text-xs">
+                        <span class="text-slate-400">Interactive flashcards with speech pronunciation</span>
+                        <a href="{% url 'sight_word_practice' profile.id %}" class="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1">
+                            🔊 Start Practice →
+                        </a>
+                    </div>
+                </div>
                 <!-- Virtual Pet Quick Card -->
 <!-- <div class="col-span-2 bg-slate-800 border border-slate-700/80 p-5 rounded-3xl shadow-xl flex items-center justify-between">
     <div class="flex items-center gap-4">

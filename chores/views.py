@@ -14,9 +14,11 @@ from django.views.decorators.http import require_POST
 from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
     CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, 
-    QuizWrongAttempt, StarLedger, ArcadeHighScore, VirtualPet, ParentNotificationConfig
+    QuizWrongAttempt, StarLedger, ArcadeHighScore, VirtualPet, 
+    ParentNotificationConfig, SightWord
 )
 from .utils import send_notification
+from django.contrib import messages
 
 
 # ==========================================
@@ -1232,4 +1234,50 @@ def update_notifications(request):
         config.show_shared_leaderboard = 'show_shared_leaderboard' in request.POST
         config.save()
         
+    return redirect('management_hub')
+
+# --- Child Practice View ---
+def sight_word_practice(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+    
+    # Query strictly this child's words
+    words_list = list(
+        SightWord.objects.filter(child=profile).values_list('word', flat=True)
+    )
+    
+    return render(request, 'chores/sight_words.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+        'words_json': json.dumps(words_list),
+        'total_words_count': len(words_list),
+    })
+
+# --- Parent Bulk Import View ---
+def import_sight_words(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+        
+    if request.method == 'POST':
+        child_id = request.POST.get('child_id')
+        raw_words = request.POST.get('words', '')
+        
+        child = get_object_or_404(Profile, id=child_id, user_type='child')
+        
+        # Wipe existing sight words for this child
+        SightWord.objects.filter(child=child).delete()
+        
+        # Parse and bulk create the new words
+        parsed_words = raw_words.replace('\n', ',').split(',')
+        created_objects = []
+        seen = set()
+
+        for w in parsed_words:
+            clean_word = w.strip().lower()
+            if clean_word and clean_word not in seen:
+                seen.add(clean_word)
+                created_objects.append(SightWord(child=child, word=clean_word))
+                
+        SightWord.objects.bulk_create(created_objects)
+        messages.success(request, f"Replaced sight words for {child.name} with {len(created_objects)} new words!")
+                
     return redirect('management_hub')

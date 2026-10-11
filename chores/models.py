@@ -267,3 +267,14 @@ class ParentNotificationConfig(models.Model):
     
     def __str__(self):
         return f"Notification Config for {self.parent.name}"
+
+class SightWord(models.Model):
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='sight_words')
+    word = models.CharField(max_length=50)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('child', 'word')
+
+    def __str__(self):
+        return f"{self.child.name}: {self.word}"

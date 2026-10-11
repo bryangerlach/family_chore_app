@@ -80,6 +80,8 @@ urlpatterns = [
     path('child/<int:profile_id>/arcade/number-jump/', views.arcade_number_jump, name='arcade_number_jump'),
     path('child/<int:profile_id>/arcade/jelly-run/', views.arcade_jelly_run, name='arcade_jelly_run'),
     path('parent/notifications/update/', views.update_notifications, name='update_notifications'),
+    path('child/<int:profile_id>/sight-words/', views.sight_word_practice, name='sight_word_practice'),
+    path('parent/management/import-sight-words/', views.import_sight_words, name='import_sight_words'),
 ]
 
 if settings.DEBUG:
