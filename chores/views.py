@@ -19,6 +19,8 @@ from .models import (
 )
 from .utils import send_notification
 from django.contrib import messages
+from gtts import gTTS
+from django.http import HttpResponse, Http404
 
 
 # ==========================================
@@ -1277,3 +1279,19 @@ def import_sight_words(request):
         messages.success(request, f"Replaced sight words for {child.name} with {len(created_objects)} new words!")
                 
     return redirect('management_hub')
+
+def text_to_speech_audio(request):
+    text = request.GET.get('text', '').strip()
+    if not text:
+        raise Http404("No text provided")
+    
+    # Generate MP3 into an in-memory buffer
+    tts = gTTS(text=text, lang='en', slow=False)
+    fp = io.BytesIO()
+    tts.write_to_fp(fp)
+    fp.seek(0)
+    
+    response = HttpResponse(fp.read(), content_type='audio/mpeg')
+    # Cache in browser for 1 week so repeated words play instantly
+    response['Cache-Control'] = 'public, max-age=604800'
+    return response

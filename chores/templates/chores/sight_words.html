@@ -148,53 +148,19 @@
             }
         }
 
-        let availableVoices = [];
-
-        // Preload and populate voices across iOS and Android
-        function loadVoices() {
-            if ('speechSynthesis' in window) {
-                availableVoices = window.speechSynthesis.getVoices();
-            }
-        }
-
-        if ('speechSynthesis' in window) {
-            loadVoices();
-            window.speechSynthesis.onvoiceschanged = loadVoices;
-        }
+        let ttsAudio = new Audio();
 
         function readWord() {
-            if (!('speechSynthesis' in window)) {
-                alert("Speech synthesis is not supported on this browser.");
-                return;
-            }
-
             if (!currentWord || currentWord === "Ready?" || currentWord === "No Words Yet!") return;
 
-            // Reset speech engine state
-            window.speechSynthesis.cancel();
-            if (window.speechSynthesis.paused) {
-                window.speechSynthesis.resume();
-            }
-
-            const utterance = new SpeechSynthesisUtterance(currentWord);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.85;
-            utterance.pitch = 1.0;
-
-            // Explicitly select an English voice if available
-            if (availableVoices.length === 0) {
-                loadVoices();
-            }
-            const englishVoice = availableVoices.find(v => v.lang.startsWith('en') && !v.localService) 
-                            || availableVoices.find(v => v.lang.startsWith('en'));
-            if (englishVoice) {
-                utterance.voice = englishVoice;
-            }
-
-            // Safety fallback for mobile browser execution
-            setTimeout(() => {
-                window.speechSynthesis.speak(utterance);
-            }, 50);
+            // Direct stream from your Django endpoint
+            const url = `/api/tts/?text=${encodeURIComponent(currentWord)}`;
+            
+            ttsAudio.pause();
+            ttsAudio.src = url;
+            ttsAudio.play().catch(err => {
+                console.error("Audio playback error:", err);
+            });
         }
 
         // Initialize immediately once DOM is loaded

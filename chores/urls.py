@@ -82,6 +82,7 @@ urlpatterns = [
     path('parent/notifications/update/', views.update_notifications, name='update_notifications'),
     path('child/<int:profile_id>/sight-words/', views.sight_word_practice, name='sight_word_practice'),
     path('parent/management/import-sight-words/', views.import_sight_words, name='import_sight_words'),
+    path('api/tts/', views.text_to_speech_audio, name='api_tts'),
 ]
 
 if settings.DEBUG:
