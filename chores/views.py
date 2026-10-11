@@ -377,9 +377,6 @@ def parent_dashboard(request):
         if parent_profile:
             parent_profile_id = parent_profile.id
             request.session['parent_profile_id'] = parent_profile_id
-
-    print("profile")
-    print(parent_profile_id)
         
     today = timezone.localdate()
     python_wd = today.weekday()
@@ -1240,7 +1237,6 @@ def update_notifications(request):
 def sight_word_practice(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
     
-    # Query strictly this child's words
     words_list = list(
         SightWord.objects.filter(child=profile).values_list('word', flat=True)
     )
@@ -1248,7 +1244,7 @@ def sight_word_practice(request, profile_id):
     return render(request, 'chores/sight_words.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
-        'words_json': json.dumps(words_list),
+        'words_list': words_list,
         'total_words_count': len(words_list),
     })
 

@@ -11,89 +11,164 @@
     
     <!-- Header -->
     <div class="w-full max-w-2xl flex justify-between items-center bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg mb-8">
-        <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition">
-            ← Dashboard
+        <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Dashboard
         </a>
-        <span class="font-bold text-cyan-400 text-lg">📚 Sight Words</span>
+        <div class="flex items-center gap-4">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            <span class="font-bold text-cyan-400 text-lg">📚 Sight Words</span>
+        </div>
     </div>
 
     <!-- Flashcard Arena -->
     <div class="w-full max-w-xl flex flex-col items-center">
         
-        <!-- Word count & empty state logic inside sight_words.html -->
-        <div id="flashcard" class="w-full bg-slate-800 border-4 border-cyan-500/50 rounded-3xl p-16 shadow-2xl flex items-center justify-center min-h-[300px] mb-8 relative">
-            <button onclick="readWord()" id="speakerBtn" class="absolute top-4 right-4 bg-slate-700 hover:bg-slate-600 p-3 rounded-full shadow-lg transition transform hover:scale-110 {% if total_words_count == 0 %}hidden{% endif %}" title="Read aloud">
+        <div class="w-full bg-slate-800 border-4 border-cyan-500/50 rounded-3xl p-16 shadow-2xl flex items-center justify-center min-h-[300px] mb-8 relative">
+            <button onclick="readWord()" id="speakerBtn" class="absolute top-4 right-4 bg-slate-700 hover:bg-slate-600 p-3 rounded-full shadow-lg transition transform hover:scale-110" title="Read aloud">
                 🔊
             </button>
+            
             <h1 id="wordDisplay" class="text-6xl md:text-8xl font-extrabold text-white tracking-wide text-center">
-                {% if total_words_count == 0 %}No Words Yet!{% else %}Ready?{% endif %}
+                Ready?
             </h1>
         </div>
 
         <div class="flex gap-4 w-full">
-            <button onclick="nextWord()" id="nextBtn" {% if total_words_count == 0 %}disabled{% endif %} class="flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold py-5 rounded-2xl shadow-lg text-2xl transition transform hover:scale-105 active:scale-95">
+            <button onclick="nextWord()" id="nextBtn" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold py-5 rounded-2xl shadow-lg text-2xl transition transform hover:scale-105 active:scale-95">
                 Next Word ➡️
             </button>
         </div>
         
-        <p class="text-slate-400 mt-6 text-sm font-bold">Words Practiced: <span id="counter" class="text-cyan-400">0</span></p>
+        <p class="text-slate-400 mt-6 text-sm font-bold">
+            Words Practiced: <span id="counter" class="text-cyan-400">0</span>
+        </p>
+    </div>
+    <!-- Milestone Celebration Overlay -->
+    <div id="milestoneModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-800 border-2 border-yellow-400/80 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl transform transition-all scale-100">
+            <span class="text-6xl block mb-3">🌟🎉</span>
+            <h2 class="text-2xl font-extrabold text-yellow-400 mb-1">Awesome Job!</h2>
+            <p id="milestoneText" class="text-slate-200 text-sm mb-6">
+                You just practiced <span class="text-cyan-400 font-bold">20 words</span>! Keep up the super reading! 🚀
+            </p>
+            
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3">
+                <button onclick="dismissMilestone()" class="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-black py-3.5 px-6 rounded-2xl shadow-lg transition transform hover:scale-105 active:scale-95 text-base">
+                    Keep Going! ➡️
+                </button>
+                <a href="{% url 'child_dashboard' profile.id %}" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 px-6 rounded-2xl transition text-sm flex items-center justify-center gap-1.5">
+                    <span>🏠</span> Return to Dashboard
+                </a>
+            </div>
+        </div>
     </div>
 
-    <script>
-        const words = JSON.parse('{{ words_json|safe }}');
-        const wordDisplay = document.getElementById('wordDisplay');
-        const counterDisplay = document.getElementById('counter');
-        let currentWord = "Ready?";
-        let practiceCount = 0;
+    <!-- Safe JSON serialization directly from Django context -->
+    {{ words_list|json_script:"sight-words-data" }}
 
-        // Shuffle array using Fisher-Yates algorithm
-        function shuffle(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+    <script>
+        const wordsDataElement = document.getElementById('sight-words-data');
+        let words = [];
+        
+        if (wordsDataElement) {
+            try {
+                words = JSON.parse(wordsDataElement.textContent);
+            } catch (e) {
+                console.error("Error parsing words data:", e);
             }
-            return array;
         }
 
+        const wordDisplay = document.getElementById('wordDisplay');
+        const counterDisplay = document.getElementById('counter');
+        const speakerBtn = document.getElementById('speakerBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        let currentWord = "Ready?";
+        let practiceCount = 0;
         let wordQueue = [];
 
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        const milestoneModal = document.getElementById('milestoneModal');
+        const milestoneText = document.getElementById('milestoneText');
+
         function nextWord() {
-            if (words.length === 0) {
-                wordDisplay.innerText = "No words found!";
+            if (!words || words.length === 0) {
+                if (wordDisplay) wordDisplay.innerText = "No Words Yet!";
+                if (speakerBtn) speakerBtn.classList.add('hidden');
+                if (nextBtn) nextBtn.disabled = true;
                 return;
             }
 
-            // Reshuffle if we run out of words
             if (wordQueue.length === 0) {
-                wordQueue = shuffle([...words]);
+                wordQueue = shuffle(words);
             }
 
             currentWord = wordQueue.pop();
-            wordDisplay.innerText = currentWord;
-            
-            if (practiceCount > 0) {
+            if (wordDisplay) {
+                wordDisplay.innerText = currentWord;
+            }
+
+            practiceCount++;
+            if (counterDisplay) {
                 counterDisplay.innerText = practiceCount;
             }
-            practiceCount++;
+
+            // Trigger celebration milestone every 20 words (20, 40, 60, etc.)
+            if (practiceCount > 0 && practiceCount % 20 === 0) {
+                showMilestone(practiceCount);
+            }
+        }
+
+        function showMilestone(count) {
+            if (milestoneText) {
+                milestoneText.innerHTML = `You just practiced <span class="text-cyan-400 font-extrabold">${count} words</span> in this session! Keep up the great reading! 🚀`;
+            }
+            if (typeof playSound === 'function') {
+                playSound('correct');
+            }
+            if (milestoneModal) {
+                milestoneModal.classList.remove('hidden');
+            }
+        }
+
+        function dismissMilestone() {
+            if (milestoneModal) {
+                milestoneModal.classList.add('hidden');
+            }
         }
 
         function readWord() {
-            if (currentWord === "Ready?" || currentWord === "No words found!") return;
+            if (!currentWord || currentWord === "Ready?" || currentWord === "No Words Yet!") return;
             
+            window.speechSynthesis.cancel(); // Stop any pending speech
             const utterance = new SpeechSynthesisUtterance(currentWord);
-            utterance.rate = 0.85; // Slightly slower for kids
-            utterance.pitch = 1.1; // Slightly higher/friendlier pitch
-            
-            // Optional: Force English language
+            utterance.rate = 0.85;
+            utterance.pitch = 1.1;
             utterance.lang = 'en-US';
-            
             window.speechSynthesis.speak(utterance);
         }
 
-        // Start immediately
-        if (words.length > 0) {
-            nextWord();
-        }
+        // Initialize immediately once DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            if (words && words.length > 0) {
+                nextWord();
+            } else {
+                if (wordDisplay) wordDisplay.innerText = "No Words Yet!";
+                if (speakerBtn) speakerBtn.classList.add('hidden');
+                if (nextBtn) nextBtn.disabled = true;
+            }
+        });
     </script>
 </body>
 </html>

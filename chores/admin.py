@@ -3,7 +3,7 @@ from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
     StarLedger, CoinStoreItem, CoinLedger, QuizQuestion, 
     QuizAttempt, QuizWrongAttempt, ArcadeHighScore, 
-    VirtualPet, ParentNotificationConfig
+    VirtualPet, ParentNotificationConfig, SightWord
 )
 
 @admin.register(Profile)
@@ -77,3 +77,10 @@ class VirtualPetAdmin(admin.ModelAdmin):
 class ParentNotificationConfigAdmin(admin.ModelAdmin):
     list_display = ('parent', 'webhook_url', 'notify_chore_waiting', 'notify_reward_requested', 'notify_quiz_completed')
     search_fields = ('parent__name', 'webhook_url')
+
+@admin.register(SightWord)
+class SightWordAdmin(admin.ModelAdmin):
+    list_display = ('word', 'child', 'added_at')
+    list_filter = ('child', 'added_at')
+    search_fields = ('word', 'child__name')
+    ordering = ('child', 'word')
