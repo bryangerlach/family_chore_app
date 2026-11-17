@@ -18,6 +18,16 @@
             <a href="{% url 'parent_dashboard' %}" class="bg-slate-700 hover:bg-slate-600 px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-200 transition">← Back to Dashboard</a>
         </div>
 
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="px-4 py-3 rounded-2xl text-sm font-bold border {% if message.tags == 'error' %}bg-rose-500/15 border-rose-500/50 text-rose-300{% else %}bg-emerald-500/15 border-emerald-500/50 text-emerald-300{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <div class="space-y-6">
             
             <!-- MANAGE CHORES & TASKS -->
@@ -325,6 +335,89 @@
                 </div>
             </details>
 
+            <!-- SPELLING WORDS MANAGEMENT (COLLAPSIBLE) -->
+            <details id="spellingWordsSection" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl group">
+                <summary class="text-lg font-bold text-emerald-400 cursor-pointer list-none flex justify-between items-center">
+                    <span>✏️ Manage Spelling Words (Per Child)</span>
+                    <span class="text-xs text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+
+                <div class="mt-4 pt-4 border-t border-slate-700 space-y-4">
+
+                    <!-- CSV / Text Import Form (Wipe & Replace) -->
+                    <form action="{% url 'import_spelling_words' %}" method="POST" enctype="multipart/form-data"
+                          onsubmit="return validateSpellingImport(this)"
+                          class="bg-slate-700/40 p-4 rounded-2xl border border-slate-700 space-y-3">
+                        {% csrf_token %}
+                        <h4 class="text-xs font-bold text-emerald-300 uppercase">Import Spelling Words (Wipe &amp; Replace)</h4>
+
+                        <select name="child_id" required class="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs">
+                            <option value="">Select Child...</option>
+                            {% for p in profiles %}{% if p.user_type == 'child' %}
+                                <option value="{{ p.id }}">{{ p.name }} {{ p.emoji }}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+
+                        <!-- CSV upload -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Option 1: Upload a CSV file</label>
+                            <input type="file" name="csv_file" accept=".csv,.txt"
+                                   class="w-full bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:text-xs file:font-bold">
+                            <p class="text-[11px] text-slate-500 mt-1">Two columns: <span class="font-mono text-slate-400">word,sentence</span> — the sentence column is optional. A header row is fine.</p>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <div class="flex-grow border-t border-slate-600"></div>
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">or</span>
+                            <div class="flex-grow border-t border-slate-600"></div>
+                        </div>
+
+                        <!-- Pasted text -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Option 2: Paste words</label>
+                            <textarea name="words" rows="5" placeholder="said, She said hello.&#10;where, Where is my coat?&#10;come, Come and play with me." class="w-full bg-slate-700 border border-slate-600 rounded-xl p-2 text-white text-xs font-mono"></textarea>
+                            <p class="text-[11px] text-slate-500 mt-1">One word per line. Add <span class="font-mono text-slate-400">, sentence</span> (or a tab / <span class="font-mono text-slate-400">|</span>) after the word to give a hint sentence.</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                            Import &amp; Replace Spelling Words 📋
+                        </button>
+                    </form>
+
+                    <!-- Current Spelling Words Bank -->
+                    <div class="space-y-2 pt-2">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase">Current Spelling Words Bank</h4>
+
+                        <div class="space-y-2">
+                            {% for p in profiles %}{% if p.user_type == 'child' %}
+                                <div class="bg-slate-700/40 border border-slate-600 p-3 rounded-xl text-xs">
+                                    <div class="font-bold text-emerald-300 mb-2 flex items-center gap-1.5">
+                                        <span>{{ p.emoji }}</span>
+                                        <span>{{ p.name }}'s Words:</span>
+                                        <span class="text-slate-400 font-normal">({{ p.spelling_words.count }} total)</span>
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        {% for sp in p.spelling_words.all %}
+                                            <div class="bg-slate-800 border border-slate-600 px-2.5 py-1.5 rounded-lg">
+                                                <span class="font-mono font-bold text-emerald-200">{{ sp.word }}</span>
+                                                {% if sp.sentence %}
+                                                    <span class="text-slate-400"> — {{ sp.sentence }}</span>
+                                                {% else %}
+                                                    <span class="text-slate-500 italic"> — no sentence</span>
+                                                {% endif %}
+                                            </div>
+                                        {% empty %}
+                                            <span class="text-slate-500 italic">No spelling words assigned yet.</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}{% endfor %}
+                        </div>
+                    </div>
+
+                </div>
+            </details>
+
             <!-- Manage Parent Notifications -->
             <details id="notificationsSection" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl group">
                 <summary class="text-lg font-bold text-cyan-400 cursor-pointer list-none flex justify-between items-center">
@@ -427,6 +520,20 @@
             }
         }
     });
+
+    function validateSpellingImport(form) {
+        const fileInput = form.querySelector('input[type="file"]');
+        const textInput = form.querySelector('textarea[name="words"]');
+        const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+        const hasText = textInput && textInput.value.trim().length > 0;
+
+        if (!hasFile && !hasText) {
+            alert('Choose a CSV file or paste some words first.');
+            return false;
+        }
+
+        return confirm('This will replace all existing spelling words for this child. Continue?');
+    }
 </script>
 </body>
 </html>

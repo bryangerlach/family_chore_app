@@ -1,0 +1,656 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spelling Practice - {{ profile.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'chores/js/sound_effects.js' %}"></script>
+    <style>
+        .letter-box {
+            width: 3rem;
+            height: 3.75rem;
+            background: #1e293b;
+            border: 2px solid #475569;
+            border-radius: 0.85rem;
+            text-align: center;
+            font-size: 1.9rem;
+            line-height: 1;
+            font-weight: 800;
+            color: #f8fafc;
+            text-transform: lowercase;
+            caret-color: #22d3ee;
+            transition: background-color .15s, border-color .15s, box-shadow .15s;
+        }
+        .letter-box::placeholder {
+            color: #64748b;
+            font-weight: 700;
+        }
+        .letter-box:focus {
+            outline: none;
+            border-color: #06b6d4;
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, .25);
+        }
+        .letter-box.correct {
+            background: rgba(22, 163, 74, .25);
+            border-color: #22c55e;
+            color: #bbf7d0;
+            box-shadow: 0 0 14px rgba(34, 197, 94, .35);
+        }
+        .letter-box.wrong {
+            background: rgba(220, 38, 38, .22);
+            border-color: #ef4444;
+            color: #fecaca;
+            box-shadow: 0 0 14px rgba(239, 68, 68, .3);
+        }
+        .fixed-letter {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 3.75rem;
+            min-width: 1.5rem;
+            color: #94a3b8;
+            font-size: 1.9rem;
+            font-weight: 800;
+        }
+        .pop-in {
+            animation: popIn .25s ease-out;
+        }
+        @keyframes popIn {
+            from { transform: scale(.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center p-4 sm:p-6">
+
+    <!-- Header -->
+    <div class="w-full max-w-2xl flex flex-wrap justify-between items-center gap-3 bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-lg mb-6">
+        <a href="{% url 'child_dashboard' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2">
+            <span>←</span> Dashboard
+        </a>
+        <div class="flex items-center gap-3">
+            <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
+                🪙 {{ coin_balance }} Coins
+            </span>
+            {% if sight_words_count %}
+                <a href="{% url 'sight_word_practice' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-xl font-bold text-sm transition" title="Go to sight words">
+                    📚 Sight Words
+                </a>
+            {% endif %}
+            <span class="font-bold text-cyan-400 text-lg">✏️ Spelling</span>
+        </div>
+    </div>
+
+    {% if words_list %}
+    <!-- Mode Tabs -->
+    <div class="w-full max-w-2xl bg-slate-800 border border-slate-700/60 p-1.5 rounded-2xl flex gap-1.5 mb-6 shadow-lg">
+        <button id="tabLearnBtn" onclick="switchTab('learn')" type="button"
+                class="flex-1 py-3 rounded-xl font-extrabold text-sm transition bg-cyan-600 text-white shadow-lg">
+            👀 Look &amp; Listen
+        </button>
+        <button id="tabSpellBtn" onclick="switchTab('spell')" type="button"
+                class="flex-1 py-3 rounded-xl font-extrabold text-sm transition text-slate-400 hover:text-slate-200">
+            ✏️ Spell It
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden w-full max-w-xl bg-slate-800 border border-slate-700 rounded-3xl p-10 text-center shadow-xl">
+        <span class="text-6xl block mb-4">📭</span>
+        <h2 class="text-2xl font-extrabold text-white mb-2">No Spelling Words Yet!</h2>
+        <p class="text-slate-400 text-sm mb-6">Ask a parent to add spelling words in the Parent Dashboard.</p>
+        <a href="{% url 'child_dashboard' profile.id %}" class="inline-block bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-3 rounded-2xl shadow transition">
+            ← Back to Dashboard
+        </a>
+    </div>
+
+    <!-- ===================== TAB 1: LOOK & LISTEN ===================== -->
+    <div id="learnPanel" class="w-full max-w-xl flex flex-col items-center">
+        <div class="w-full bg-slate-800 border-4 border-cyan-500/50 rounded-3xl p-6 sm:p-10 shadow-2xl flex flex-col items-center justify-center min-h-[300px] mb-6">
+            <div class="w-full flex justify-end mb-2">
+                <button onclick="readLearnWord()" class="bg-slate-700 hover:bg-slate-600 p-3 rounded-full shadow-lg transition transform hover:scale-110" title="Read the word aloud" aria-label="Read the word aloud">
+                    🔊
+                </button>
+            </div>
+
+            <h1 id="learnWordDisplay" class="text-5xl sm:text-7xl font-extrabold text-white tracking-wide text-center break-words">
+                Ready?
+            </h1>
+
+            <div id="learnSentenceWrap" class="w-full mt-5 pt-4 border-t border-slate-700/60 hidden">
+                <p id="learnSentence" class="text-center text-slate-300 text-base sm:text-lg leading-snug"></p>
+                <div class="flex justify-center mt-3">
+                    <button onclick="readLearnSentence()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                        💬 Hear the sentence
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="nextLearnWord()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold py-5 rounded-2xl shadow-lg text-2xl transition transform hover:scale-[1.02] active:scale-95">
+            Next Word ➡️
+        </button>
+
+        <p class="text-slate-400 mt-5 text-sm font-bold">
+            Words Practiced: <span id="learnCounter" class="text-cyan-400">0</span>
+        </p>
+    </div>
+
+    <!-- ===================== TAB 2: SPELL IT ===================== -->
+    <div id="spellPanel" class="hidden w-full max-w-xl flex flex-col items-center">
+
+        <!-- Prompt card -->
+        <div class="w-full bg-slate-800 border-4 border-cyan-500/50 rounded-3xl p-5 sm:p-7 shadow-2xl mb-4">
+            <p class="text-center text-xs font-bold uppercase tracking-wider text-cyan-300 mb-1">Listen and spell the word</p>
+            <p class="text-center text-slate-400 text-xs mb-4">Type one letter in each box ( _ )</p>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button id="hearWordBtn" onclick="readSpellWord()" class="bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3.5 rounded-2xl shadow transition flex items-center justify-center gap-2 text-sm">
+                    🔊 Hear Word
+                </button>
+                <button id="hearSentenceBtn" onclick="readSpellSentence()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3.5 rounded-2xl shadow transition flex items-center justify-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                    💬 Hear Sentence
+                </button>
+            </div>
+
+            <!-- Sentence with the word blanked out -->
+            <div id="spellSentenceWrap" class="hidden mt-4 bg-slate-900/60 border border-slate-700 rounded-2xl p-3">
+                <p class="text-center text-slate-300 text-sm sm:text-base leading-snug">
+                    <span id="maskedSentence"></span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Letter boxes -->
+        <div id="letterBoxes" class="w-full flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 mb-5 min-h-[4rem]"></div>
+
+        <!-- Feedback -->
+        <div id="feedbackPanel" class="hidden w-full border rounded-2xl p-4 mb-4 pop-in">
+            <p id="feedbackTitle" class="text-lg sm:text-xl font-extrabold"></p>
+            <p id="feedbackText" class="text-sm text-slate-200 mt-1"></p>
+            <p id="answerReveal" class="hidden text-sm text-slate-300 mt-2">
+                Correct spelling:
+                <span id="correctSpelling" class="font-extrabold tracking-widest text-cyan-300"></span>
+            </p>
+            <p id="sentenceReveal" class="hidden text-sm text-slate-400 mt-2"></p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-wrap gap-3 w-full">
+            <button id="submitBtn" onclick="checkSpelling()" class="flex-1 min-w-[10rem] bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-4 rounded-2xl shadow-lg text-lg transition transform hover:scale-[1.02] active:scale-95">
+                Check Spelling ✅
+            </button>
+            <button id="tryAgainBtn" onclick="tryAgain()" class="hidden flex-1 min-w-[8rem] bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-4 rounded-2xl shadow transition text-base">
+                Try Again 🔄
+            </button>
+            <button id="nextSpellBtn" onclick="nextSpellWord()" class="hidden flex-1 min-w-[10rem] bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold py-4 rounded-2xl shadow-lg text-lg transition transform hover:scale-[1.02] active:scale-95">
+                Next Word ➡️
+            </button>
+        </div>
+
+        <p class="text-slate-400 mt-5 text-sm font-bold text-center">
+            ✅ Spelled Correctly: <span id="spellCorrectCount" class="text-emerald-400">0</span>
+            <span class="text-slate-600 mx-1">•</span>
+            Tries: <span id="spellAttemptCount" class="text-cyan-400">0</span>
+        </p>
+    </div>
+
+    <!-- Milestone Celebration Overlay -->
+    <div id="milestoneModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-800 border-2 border-yellow-400/80 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl">
+            <span class="text-6xl block mb-3">🌟🎉</span>
+            <h2 class="text-2xl font-extrabold text-yellow-400 mb-1">Super Speller!</h2>
+            <p id="milestoneText" class="text-slate-200 text-sm mb-6"></p>
+
+            <div class="flex flex-col gap-3">
+                <button onclick="dismissMilestone()" class="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-black py-3.5 px-6 rounded-2xl shadow-lg transition transform hover:scale-105 active:scale-95 text-base">
+                    Keep Going! ➡️
+                </button>
+                <a href="{% url 'child_dashboard' profile.id %}" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 px-6 rounded-2xl transition text-sm flex items-center justify-center gap-1.5">
+                    <span>🏠</span> Return to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {{ words_list|json_script:"spelling-words-data" }}
+
+    <script>
+        // ---------------------------------------------------------------
+        //  Data & state
+        // ---------------------------------------------------------------
+        const dataElement = document.getElementById('spelling-words-data');
+        let words = [];
+        try {
+            words = JSON.parse(dataElement.textContent) || [];
+        } catch (e) {
+            console.error('Error parsing spelling words data:', e);
+        }
+        const hasWords = Array.isArray(words) && words.length > 0;
+
+        const learnPanel = document.getElementById('learnPanel');
+        const spellPanel = document.getElementById('spellPanel');
+        const emptyState = document.getElementById('emptyState');
+        const tabLearnBtn = document.getElementById('tabLearnBtn');
+        const tabSpellBtn = document.getElementById('tabSpellBtn');
+
+        const learnWordDisplay = document.getElementById('learnWordDisplay');
+        const learnSentenceWrap = document.getElementById('learnSentenceWrap');
+        const learnSentence = document.getElementById('learnSentence');
+        const learnCounter = document.getElementById('learnCounter');
+
+        const letterBoxesEl = document.getElementById('letterBoxes');
+        const hearWordBtn = document.getElementById('hearWordBtn');
+        const hearSentenceBtn = document.getElementById('hearSentenceBtn');
+        const spellSentenceWrap = document.getElementById('spellSentenceWrap');
+        const maskedSentence = document.getElementById('maskedSentence');
+
+        const feedbackPanel = document.getElementById('feedbackPanel');
+        const feedbackTitle = document.getElementById('feedbackTitle');
+        const feedbackText = document.getElementById('feedbackText');
+        const answerReveal = document.getElementById('answerReveal');
+        const correctSpelling = document.getElementById('correctSpelling');
+        const sentenceReveal = document.getElementById('sentenceReveal');
+
+        const submitBtn = document.getElementById('submitBtn');
+        const tryAgainBtn = document.getElementById('tryAgainBtn');
+        const nextSpellBtn = document.getElementById('nextSpellBtn');
+        const spellCorrectCountEl = document.getElementById('spellCorrectCount');
+        const spellAttemptCountEl = document.getElementById('spellAttemptCount');
+
+        const milestoneModal = document.getElementById('milestoneModal');
+        const milestoneText = document.getElementById('milestoneText');
+
+        let learnQueue = [];
+        let spellQueue = [];
+        let currentLearn = null;
+        let currentSpell = null;
+        let letterBoxes = [];
+        let learnCount = 0;
+        let spellCorrect = 0;
+        let spellAttempts = 0;
+        let solvedCurrent = false;
+
+        const TAB_ACTIVE = 'flex-1 py-3 rounded-xl font-extrabold text-sm transition bg-cyan-600 text-white shadow-lg';
+        const TAB_IDLE = 'flex-1 py-3 rounded-xl font-extrabold text-sm transition text-slate-400 hover:text-slate-200';
+
+        // ---------------------------------------------------------------
+        //  Speech
+        // ---------------------------------------------------------------
+        const ttsAudio = new Audio();
+
+        function speak(text) {
+            text = (text || '').trim();
+            if (!text) return;
+
+            const url = '/api/tts/?text=' + encodeURIComponent(text);
+            ttsAudio.pause();
+            ttsAudio.src = url;
+            ttsAudio.play().catch(err => {
+                console.error('Audio playback error:', err);
+            });
+        }
+
+        function playSoundSafe(type) {
+            if (typeof playSound === 'function') playSound(type);
+        }
+
+        // ---------------------------------------------------------------
+        //  Helpers
+        // ---------------------------------------------------------------
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function escapeRegExp(value) {
+            return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        // Replace the target word in the sentence with underscores so the
+        // sentence gives context without showing the answer.
+        function maskWord(sentence, word) {
+            sentence = (sentence || '').trim();
+            word = (word || '').trim();
+            if (!sentence || !word) return '';
+
+            const pattern = new RegExp('\\b' + escapeRegExp(word) + '\\b', 'gi');
+            const masked = sentence.replace(pattern, '_'.repeat(Math.max(word.length, 3)));
+            return masked === sentence ? '' : masked;
+        }
+
+        // ---------------------------------------------------------------
+        //  Tabs
+        // ---------------------------------------------------------------
+        let activeTab = 'learn';
+
+        function switchTab(tab) {
+            activeTab = tab;
+
+            if (tab === 'learn') {
+                learnPanel.classList.remove('hidden');
+                spellPanel.classList.add('hidden');
+                tabLearnBtn.className = TAB_ACTIVE;
+                tabSpellBtn.className = TAB_IDLE;
+                tabLearnBtn.setAttribute('aria-selected', 'true');
+                tabSpellBtn.setAttribute('aria-selected', 'false');
+            } else {
+                learnPanel.classList.add('hidden');
+                spellPanel.classList.remove('hidden');
+                tabLearnBtn.className = TAB_IDLE;
+                tabSpellBtn.className = TAB_ACTIVE;
+                tabLearnBtn.setAttribute('aria-selected', 'false');
+                tabSpellBtn.setAttribute('aria-selected', 'true');
+
+                if (!currentSpell) {
+                    nextSpellWord(true);
+                } else if (letterBoxes.length) {
+                    const firstEmpty = letterBoxes.find(box => !box.value && !box.readOnly);
+                    (firstEmpty || letterBoxes[0]).focus();
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        //  Learn mode (look + listen)
+        // ---------------------------------------------------------------
+        function nextLearnWord(shouldSpeak = true) {
+            if (!hasWords) return;
+
+            if (learnQueue.length === 0) learnQueue = shuffle(words);
+            currentLearn = learnQueue.pop();
+
+            learnWordDisplay.textContent = currentLearn.word;
+
+            const sentence = (currentLearn.sentence || '').trim();
+            if (sentence) {
+                learnSentence.textContent = sentence;
+                learnSentenceWrap.classList.remove('hidden');
+            } else {
+                learnSentence.textContent = '';
+                learnSentenceWrap.classList.add('hidden');
+            }
+
+            learnCount++;
+            learnCounter.textContent = learnCount;
+
+            if (shouldSpeak) speak(currentLearn.word);
+        }
+
+        function readLearnWord() {
+            if (currentLearn) speak(currentLearn.word);
+        }
+
+        function readLearnSentence() {
+            if (currentLearn && currentLearn.sentence) speak(currentLearn.sentence);
+        }
+
+        // ---------------------------------------------------------------
+        //  Spell mode
+        // ---------------------------------------------------------------
+        function nextSpellWord(shouldSpeak = true) {
+            if (!hasWords) return;
+
+            if (spellQueue.length === 0) spellQueue = shuffle(words);
+            currentSpell = spellQueue.pop();
+            solvedCurrent = false;
+
+            buildLetterBoxes(currentSpell.word);
+
+            const masked = maskWord(currentSpell.sentence, currentSpell.word);
+            if (masked) {
+                maskedSentence.textContent = masked;
+                spellSentenceWrap.classList.remove('hidden');
+            } else {
+                maskedSentence.textContent = '';
+                spellSentenceWrap.classList.add('hidden');
+            }
+            hearSentenceBtn.disabled = !(currentSpell.sentence || '').trim();
+
+            clearFeedback();
+            submitBtn.classList.remove('hidden');
+            submitBtn.disabled = false;
+            tryAgainBtn.classList.add('hidden');
+            nextSpellBtn.classList.add('hidden');
+
+            if (letterBoxes[0]) letterBoxes[0].focus();
+            if (shouldSpeak) speak(currentSpell.word);
+        }
+
+        function buildLetterBoxes(word) {
+            letterBoxesEl.innerHTML = '';
+            letterBoxes = [];
+
+            for (const ch of Array.from(word || '')) {
+                if (/[\p{L}\p{N}]/u.test(ch)) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.maxLength = 1;
+                    input.placeholder = '_';
+                    input.autocomplete = 'off';
+                    input.setAttribute('autocapitalize', 'off');
+                    input.setAttribute('spellcheck', 'false');
+                    input.setAttribute('aria-label', 'Letter ' + (letterBoxes.length + 1));
+                    input.dataset.expected = ch;
+                    input.className = 'letter-box';
+                    input.addEventListener('input', handleLetterInput);
+                    input.addEventListener('keydown', handleLetterKey);
+                    input.addEventListener('focus', () => input.select());
+
+                    letterBoxesEl.appendChild(input);
+                    letterBoxes.push(input);
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'fixed-letter';
+                    span.textContent = ch === ' ' ? '\u00A0' : ch;
+                    if (ch === ' ') span.style.minWidth = '1.25rem';
+                    letterBoxesEl.appendChild(span);
+                }
+            }
+        }
+
+        function handleLetterInput(event) {
+            const input = event.target;
+            const clean = input.value.replace(/[^\p{L}\p{N}]/gu, '');
+            input.value = clean.slice(-1);
+            input.classList.remove('correct', 'wrong');
+
+            if (input.value) {
+                const index = letterBoxes.indexOf(input);
+                const nextEmpty = letterBoxes.slice(index + 1).find(box => !box.value);
+                const nextBox = nextEmpty || letterBoxes[index + 1];
+                if (nextBox) nextBox.focus();
+            }
+        }
+
+        function handleLetterKey(event) {
+            const index = letterBoxes.indexOf(event.target);
+
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                checkSpelling();
+                return;
+            }
+
+            if (event.key === 'Backspace' && !event.target.value) {
+                event.preventDefault();
+                const previous = letterBoxes[index - 1];
+                if (previous) {
+                    previous.value = '';
+                    previous.classList.remove('correct', 'wrong');
+                    previous.focus();
+                }
+                return;
+            }
+
+            if (event.key === 'ArrowLeft' && index > 0) {
+                event.preventDefault();
+                letterBoxes[index - 1].focus();
+            } else if (event.key === 'ArrowRight' && index < letterBoxes.length - 1) {
+                event.preventDefault();
+                letterBoxes[index + 1].focus();
+            }
+        }
+
+        function readSpellWord() {
+            if (currentSpell) speak(currentSpell.word);
+        }
+
+        function readSpellSentence() {
+            if (currentSpell && currentSpell.sentence) speak(currentSpell.sentence);
+        }
+
+        function checkSpelling() {
+            if (!currentSpell || solvedCurrent || !letterBoxes.length) return;
+            if (letterBoxes[0].readOnly) return;
+
+            const anyFilled = letterBoxes.some(box => box.value.trim());
+            if (!anyFilled) {
+                letterBoxesEl.classList.add('animate-pulse');
+                setTimeout(() => letterBoxesEl.classList.remove('animate-pulse'), 450);
+                speak(currentSpell.word);
+                return;
+            }
+
+            let correctCount = 0;
+
+            letterBoxes.forEach(box => {
+                const typed = (box.value || '').trim().toLowerCase();
+                const expected = box.dataset.expected.toLowerCase();
+
+                box.classList.remove('correct', 'wrong');
+                if (typed && typed === expected) {
+                    box.classList.add('correct');
+                    correctCount++;
+                } else {
+                    box.classList.add('wrong');
+                }
+                box.readOnly = true;
+            });
+
+            const isCorrect = correctCount === letterBoxes.length;
+            spellAttempts++;
+            spellAttemptCountEl.textContent = spellAttempts;
+
+            if (isCorrect) {
+                solvedCurrent = true;
+                spellCorrect++;
+                spellCorrectCountEl.textContent = spellCorrect;
+                playSoundSafe('correct');
+                showFeedback(true);
+                if (spellCorrect % 10 === 0) {
+                    const milestoneCount = spellCorrect;
+                    setTimeout(() => showMilestone(milestoneCount), 900);
+                }
+            } else {
+                playSoundSafe('incorrect');
+                showFeedback(false);
+            }
+
+            submitBtn.classList.add('hidden');
+            nextSpellBtn.classList.remove('hidden');
+            tryAgainBtn.classList.toggle('hidden', isCorrect);
+        }
+
+        function showFeedback(isCorrect) {
+            feedbackPanel.classList.remove(
+                'hidden', 'border-emerald-500/60', 'bg-emerald-500/10',
+                'border-rose-500/60', 'bg-rose-500/10'
+            );
+
+            if (isCorrect) {
+                feedbackPanel.classList.add('border-emerald-500/60', 'bg-emerald-500/10');
+                feedbackTitle.className = 'text-lg sm:text-xl font-extrabold text-emerald-400';
+                feedbackTitle.textContent = '🎉 Perfect!';
+                feedbackText.innerHTML = 'You spelled <strong class="text-white">' +
+                    escapeHtml(currentSpell.word) + '</strong> correctly!';
+                answerReveal.classList.add('hidden');
+            } else {
+                feedbackPanel.classList.add('border-rose-500/60', 'bg-rose-500/10');
+                feedbackTitle.className = 'text-lg sm:text-xl font-extrabold text-rose-400';
+                feedbackTitle.textContent = 'Not quite!';
+                feedbackText.textContent = 'Look at the green letters — those are right. Fix the red ones and try again, or see the answer below.';
+                correctSpelling.textContent = currentSpell.word;
+                answerReveal.classList.remove('hidden');
+            }
+
+            const sentence = (currentSpell.sentence || '').trim();
+            if (sentence) {
+                sentenceReveal.textContent = '💬 ' + sentence;
+                sentenceReveal.classList.remove('hidden');
+            } else {
+                sentenceReveal.textContent = '';
+                sentenceReveal.classList.add('hidden');
+            }
+        }
+
+        function clearFeedback() {
+            feedbackPanel.classList.add('hidden');
+            answerReveal.classList.add('hidden');
+            sentenceReveal.classList.add('hidden');
+        }
+
+        function tryAgain() {
+            if (!currentSpell) return;
+
+            solvedCurrent = false;
+            letterBoxes.forEach(box => {
+                box.value = '';
+                box.readOnly = false;
+                box.classList.remove('correct', 'wrong');
+            });
+
+            clearFeedback();
+            submitBtn.classList.remove('hidden');
+            tryAgainBtn.classList.add('hidden');
+            nextSpellBtn.classList.add('hidden');
+
+            if (letterBoxes[0]) letterBoxes[0].focus();
+        }
+
+        // ---------------------------------------------------------------
+        //  Milestone
+        // ---------------------------------------------------------------
+        function showMilestone(count) {
+            milestoneText.innerHTML = 'You have spelled <span class="text-emerald-400 font-extrabold">' +
+                count + ' words</span> correctly this session! Keep it up! 🚀';
+            milestoneModal.classList.remove('hidden');
+        }
+
+        function dismissMilestone() {
+            milestoneModal.classList.add('hidden');
+        }
+
+        // ---------------------------------------------------------------
+        //  Init
+        // ---------------------------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!hasWords) {
+                emptyState.classList.remove('hidden');
+                learnPanel.classList.add('hidden');
+                spellPanel.classList.add('hidden');
+                if (tabLearnBtn && tabSpellBtn) {
+                    tabLearnBtn.classList.add('hidden');
+                    tabSpellBtn.classList.add('hidden');
+                }
+                return;
+            }
+
+            nextLearnWord(false);
+        });
+    </script>
+</body>
+</html>

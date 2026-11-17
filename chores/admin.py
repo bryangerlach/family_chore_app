@@ -3,7 +3,7 @@ from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
     StarLedger, CoinStoreItem, CoinLedger, QuizQuestion, 
     QuizAttempt, QuizWrongAttempt, ArcadeHighScore, 
-    VirtualPet, ParentNotificationConfig, SightWord
+    VirtualPet, ParentNotificationConfig, SightWord, SpellingWord
 )
 
 @admin.register(Profile)
@@ -83,4 +83,12 @@ class SightWordAdmin(admin.ModelAdmin):
     list_display = ('word', 'child', 'added_at')
     list_filter = ('child', 'added_at')
     search_fields = ('word', 'child__name')
+    ordering = ('child', 'word')
+
+
+@admin.register(SpellingWord)
+class SpellingWordAdmin(admin.ModelAdmin):
+    list_display = ('word', 'child', 'sentence', 'added_at')
+    list_filter = ('child', 'added_at')
+    search_fields = ('word', 'sentence', 'child__name')
     ordering = ('child', 'word')

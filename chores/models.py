@@ -278,3 +278,21 @@ class SightWord(models.Model):
 
     def __str__(self):
         return f"{self.child.name}: {self.word}"
+
+
+class SpellingWord(models.Model):
+    child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='spelling_words')
+    word = models.CharField(max_length=50)
+    sentence = models.TextField(
+        blank=True,
+        default='',
+        help_text="A sentence that uses the word. It is read aloud as a hint while spelling."
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('child', 'word')
+        ordering = ('word',)
+
+    def __str__(self):
+        return f"{self.child.name}: {self.word}"

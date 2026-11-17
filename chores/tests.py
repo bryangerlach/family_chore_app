@@ -13,7 +13,9 @@ from chores.models import (
     CoinStoreItem,
     CoinLedger,
     StarLedger,
-    ArcadeHighScore
+    ArcadeHighScore,
+    SightWord,
+    SpellingWord
 )
 import json
 
@@ -315,3 +317,70 @@ class ArcadeAndReversalTestCase(TestCase):
         
         self.client.post(reverse('reverse_coin_ledger', args=[entry.id]))
         self.assertEqual(self.child.get_coin_balance(), 0)
+
+class SpellingWordImportTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.parent = Profile.objects.create(name="Mom", user_type="parent", pin="1234")
+        self.child = Profile.objects.create(name="Zoe", user_type="child")
+
+        session = self.client.session
+        session['is_parent_authenticated'] = True
+        session.save()
+
+    def test_import_spelling_words_from_csv_upload(self):
+        """CSV upload parses the word and quoted sentence columns and replaces old words."""
+        SpellingWord.objects.create(child=self.child, word="old", sentence="An old sentence.")
+
+        csv_file = SimpleUploadedFile(
+            "spelling.csv",
+            b'word,sentence\nsaid,"She said hello, loudly."\nwhere,Where is my coat?\ncome,\n',
+            content_type="text/csv",
+        )
+
+        response = self.client.post(reverse('import_spelling_words'), {
+            'child_id': self.child.id,
+            'csv_file': csv_file,
+        })
+
+        self.assertEqual(response.status_code, 302)
+        words = {w.word: w.sentence for w in SpellingWord.objects.filter(child=self.child)}
+        self.assertEqual(set(words), {'said', 'where', 'come'})
+        self.assertEqual(words['said'], 'She said hello, loudly.')
+        self.assertEqual(words['where'], 'Where is my coat?')
+        self.assertEqual(words['come'], '')
+
+    def test_import_spelling_words_from_pasted_text(self):
+        """Pasted text accepts comma, pipe and word-only lines, and drops duplicates."""
+        response = self.client.post(reverse('import_spelling_words'), {
+            'child_id': self.child.id,
+            'words': 'said, She said hello.\nsaid, Duplicate\n\nwhere | Where is my coat?\ncome',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        words = {w.word: w.sentence for w in SpellingWord.objects.filter(child=self.child)}
+        self.assertEqual(words, {
+            'said': 'She said hello.',
+            'where': 'Where is my coat?',
+            'come': '',
+        })
+
+    def test_import_spelling_words_requires_parent_login(self):
+        """A child (or logged-out visitor) cannot replace spelling words."""
+        response = Client().post(reverse('import_spelling_words'), {
+            'child_id': self.child.id,
+            'words': 'said',
+        })
+
+        self.assertRedirects(response, reverse('parent_login'), fetch_redirect_response=False)
+        self.assertEqual(SpellingWord.objects.count(), 0)
+
+    def test_spelling_practice_page_lists_words(self):
+        """The child spelling page renders its word list and sentences."""
+        SpellingWord.objects.create(child=self.child, word='said', sentence='She said hello.')
+
+        response = self.client.get(reverse('spelling_practice', args=[self.child.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'spelling-words-data')
+        self.assertContains(response, 'She said hello.')

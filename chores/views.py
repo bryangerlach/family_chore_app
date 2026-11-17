@@ -15,7 +15,7 @@ from .models import (
     Profile, Task, DailyTaskStatus, Reward, RedemptionLog, 
     CoinLedger, QuizQuestion, QuizAttempt, CoinStoreItem, 
     QuizWrongAttempt, StarLedger, ArcadeHighScore, VirtualPet, 
-    ParentNotificationConfig, SightWord
+    ParentNotificationConfig, SightWord, SpellingWord
 )
 from .utils import send_notification
 from django.contrib import messages
@@ -1278,6 +1278,120 @@ def import_sight_words(request):
         SightWord.objects.bulk_create(created_objects)
         messages.success(request, f"Replaced sight words for {child.name} with {len(created_objects)} new words!")
                 
+    return redirect('management_hub')
+
+# --- Child Spelling Practice View ---
+def spelling_practice(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+
+    words_list = list(
+        SpellingWord.objects.filter(child=profile).values('word', 'sentence')
+    )
+
+    return render(request, 'chores/spelling_words.html', {
+        'profile': profile,
+        'coin_balance': profile.get_coin_balance(),
+        'words_list': words_list,
+        'sight_words_count': SightWord.objects.filter(child=profile).count(),
+    })
+
+
+def _parse_spelling_text(raw_text):
+    """Turn parent-pasted lines such as 'said, She said hello.' into (word, sentence) rows."""
+    rows = []
+    for line in raw_text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        word = line
+        sentence = ''
+        for separator in ('|', '\t', ','):
+            if separator in line:
+                word, sentence = line.split(separator, 1)
+                break
+
+        rows.append((word.strip(), sentence.strip()))
+    return rows
+
+
+def _parse_spelling_csv(file_obj):
+    """Read a CSV upload with a 'word' column and an optional 'sentence' column."""
+    try:
+        decoded = file_obj.read().decode('utf-8-sig', errors='replace')
+    except Exception:
+        return []
+
+    rows = []
+    for columns in csv.reader(io.StringIO(decoded)):
+        cells = [cell.strip() for cell in columns]
+        if not any(cells):
+            continue
+
+        word = cells[0]
+        sentence = ', '.join(cell for cell in cells[1:] if cell)
+        rows.append((word, sentence))
+    return rows
+
+
+def _clean_spelling_rows(rows):
+    """Drop the header row, empty words and duplicates, and tidy the whitespace."""
+    cleaned = []
+    seen = set()
+
+    for index, (word, sentence) in enumerate(rows):
+        word = ' '.join((word or '').split())
+        sentence = ' '.join((sentence or '').split())
+
+        if index == 0 and word.lower() in ('word', 'words', 'spelling word', 'spelling words'):
+            continue
+        if not word:
+            continue
+
+        key = word.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append((word, sentence))
+
+    return cleaned
+
+
+# --- Parent Bulk Import View ---
+def import_spelling_words(request):
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+
+    if request.method == 'POST':
+        child_id = request.POST.get('child_id')
+        if not child_id:
+            messages.error(request, "Please choose a child before importing spelling words.")
+            return redirect('management_hub')
+
+        child = get_object_or_404(Profile, id=child_id, user_type='child')
+
+        upload = request.FILES.get('csv_file')
+        if upload and upload.name:
+            rows = _parse_spelling_csv(upload)
+        else:
+            rows = _parse_spelling_text(request.POST.get('words', ''))
+
+        rows = _clean_spelling_rows(rows)
+
+        # Wipe existing spelling words for this child, same as the sight word importer.
+        SpellingWord.objects.filter(child=child).delete()
+
+        SpellingWord.objects.bulk_create(
+            [SpellingWord(child=child, word=word, sentence=sentence) for word, sentence in rows]
+        )
+
+        with_sentences = sum(1 for _, sentence in rows if sentence)
+        messages.success(
+            request,
+            f"Replaced spelling words for {child.name} with {len(rows)} words "
+            f"({with_sentences} with example sentences)!"
+        )
+
     return redirect('management_hub')
 
 def text_to_speech_audio(request):
