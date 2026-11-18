@@ -203,7 +203,11 @@
                         </a>
                     </div>
                     <div class="border-t border-slate-700/60 pt-3 flex justify-between items-center text-xs">
+                        {% if spelling_total_count %}
+                        <span class="text-slate-400">🏆 {{ spelling_mastered_count }} of {{ spelling_total_count }} word{{ spelling_total_count|pluralize }} mastered</span>
+                        {% else %}
                         <span class="text-slate-400">Hear the word and sentence, then type it out</span>
+                        {% endif %}
                         <a href="{% url 'spelling_practice' profile.id %}" class="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 whitespace-nowrap">
                             🎧 Start →
                         </a>

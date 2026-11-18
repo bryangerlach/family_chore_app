@@ -88,7 +88,7 @@ class SightWordAdmin(admin.ModelAdmin):
 
 @admin.register(SpellingWord)
 class SpellingWordAdmin(admin.ModelAdmin):
-    list_display = ('word', 'child', 'sentence', 'added_at')
+    list_display = ('word', 'child', 'correct_count', 'wrong_count', 'is_mastered', 'last_practiced_at', 'added_at')
     list_filter = ('child', 'added_at')
     search_fields = ('word', 'sentence', 'child__name')
     ordering = ('child', 'word')

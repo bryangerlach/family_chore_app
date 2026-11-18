@@ -384,3 +384,126 @@ class SpellingWordImportTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'spelling-words-data')
         self.assertContains(response, 'She said hello.')
+
+
+class SpellingWordMasteryTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.parent = Profile.objects.create(name="Mom", user_type="parent", pin="1234")
+        self.child = Profile.objects.create(name="Zoe", user_type="child")
+
+        session = self.client.session
+        session['is_parent_authenticated'] = True
+        session.save()
+
+    def test_mastery_needs_five_more_correct_than_wrong(self):
+        """A word is mastered at a lead of 5, whether that is 5-0 or 10-5 style."""
+        word = SpellingWord(child=self.child, word='said')
+
+        word.correct_count, word.wrong_count = 5, 0    # lead 5
+        self.assertTrue(word.is_mastered)
+
+        word.wrong_count = 1                           # lead 4
+        self.assertFalse(word.is_mastered)
+
+        word.correct_count, word.wrong_count = 10, 4   # lead 6
+        self.assertTrue(word.is_mastered)
+
+        word.correct_count, word.wrong_count = 9, 4    # lead 5
+        self.assertTrue(word.is_mastered)
+
+        word.correct_count, word.wrong_count = 8, 4    # lead 4
+        self.assertFalse(word.is_mastered)
+
+    def test_recording_results_updates_counts(self):
+        """Each correct or incorrect check is recorded on the word."""
+        word = SpellingWord.objects.create(child=self.child, word='said', sentence='She said hello.')
+        url = reverse('record_spelling_result', args=[self.child.id])
+
+        response = self.client.post(
+            url,
+            data=json.dumps({'word_id': word.id, 'result': 'correct'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['correct_count'], 1)
+        self.assertFalse(response.json()['mastered'])
+
+        response = self.client.post(
+            url,
+            data=json.dumps({'word_id': word.id, 'result': 'incorrect'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['correct_count'], 1)
+        self.assertEqual(response.json()['wrong_count'], 1)
+
+        word.refresh_from_db()
+        self.assertEqual(word.correct_count, 1)
+        self.assertEqual(word.wrong_count, 1)
+        self.assertIsNotNone(word.last_practiced_at)
+
+    def test_recording_rejects_invalid_result(self):
+        """Unknown result values and other children's words are rejected."""
+        word = SpellingWord.objects.create(child=self.child, word='said')
+        url = reverse('record_spelling_result', args=[self.child.id])
+
+        response = self.client.post(
+            url,
+            data=json.dumps({'word_id': word.id, 'result': 'maybe'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+        other_child = Profile.objects.create(name="Max", user_type="child")
+        other_word = SpellingWord.objects.create(child=other_child, word='where')
+        response = self.client.post(
+            url,
+            data=json.dumps({'word_id': other_word.id, 'result': 'correct'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_mastered_words_are_not_in_the_practice_rotation(self):
+        """Mastered words are excluded from the page data but still counted."""
+        SpellingWord.objects.create(child=self.child, word='where', sentence='Where is my coat?')
+        SpellingWord.objects.create(child=self.child, word='said', correct_count=5)
+
+        response = self.client.get(reverse('spelling_practice', args=[self.child.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([word['word'] for word in response.context['words_list']], ['where'])
+        self.assertEqual(response.context['mastered_words_count'], 1)
+        self.assertEqual(response.context['total_words_count'], 2)
+
+    def test_all_mastered_page_shows_mastered_state(self):
+        """When every word is mastered the page renders the celebration state."""
+        SpellingWord.objects.create(child=self.child, word='said', correct_count=5)
+
+        response = self.client.get(reverse('spelling_practice', args=[self.child.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['words_list'], [])
+        self.assertEqual(response.context['mastered_words_count'], 1)
+        self.assertContains(response, 'All Words Mastered!')
+
+    def test_reset_spelling_progress_clears_counts(self):
+        """A parent can reset progress without deleting the words."""
+        SpellingWord.objects.create(child=self.child, word='said', correct_count=6, wrong_count=1)
+
+        response = self.client.post(reverse('reset_spelling_progress', args=[self.child.id]))
+
+        self.assertRedirects(response, reverse('management_hub'), fetch_redirect_response=False)
+        word = SpellingWord.objects.get(child=self.child, word='said')
+        self.assertEqual(word.correct_count, 0)
+        self.assertEqual(word.wrong_count, 0)
+        self.assertIsNone(word.last_practiced_at)
+
+    def test_reset_spelling_progress_requires_parent_login(self):
+        """A logged-out visitor cannot reset spelling progress."""
+        SpellingWord.objects.create(child=self.child, word='said', correct_count=6)
+
+        response = Client().post(reverse('reset_spelling_progress', args=[self.child.id]))
+
+        self.assertRedirects(response, reverse('parent_login'), fetch_redirect_response=False)
+        self.assertEqual(SpellingWord.objects.get(child=self.child, word='said').correct_count, 6)

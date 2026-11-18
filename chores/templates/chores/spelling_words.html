@@ -74,6 +74,11 @@
             <span class="bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 px-3 py-1.5 rounded-xl font-bold text-sm">
                 🪙 {{ coin_balance }} Coins
             </span>
+            {% if total_words_count %}
+            <span id="masteredChip" class="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 px-3 py-1.5 rounded-xl font-bold text-sm" title="Words mastered out of all your spelling words">
+                🏆 <span id="masteredChipText">{{ mastered_words_count }} / {{ total_words_count }}</span>
+            </span>
+            {% endif %}
             {% if sight_words_count %}
                 <a href="{% url 'sight_word_practice' profile.id %}" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-xl font-bold text-sm transition" title="Go to sight words">
                     📚 Sight Words
@@ -85,7 +90,7 @@
 
     {% if words_list %}
     <!-- Mode Tabs -->
-    <div class="w-full max-w-2xl bg-slate-800 border border-slate-700/60 p-1.5 rounded-2xl flex gap-1.5 mb-6 shadow-lg">
+    <div id="tabBar" class="w-full max-w-2xl bg-slate-800 border border-slate-700/60 p-1.5 rounded-2xl flex gap-1.5 mb-6 shadow-lg">
         <button id="tabLearnBtn" onclick="switchTab('learn')" type="button"
                 class="flex-1 py-3 rounded-xl font-extrabold text-sm transition bg-cyan-600 text-white shadow-lg">
             👀 Look &amp; Listen
@@ -98,7 +103,7 @@
     {% endif %}
 
     <!-- Empty State -->
-    <div id="emptyState" class="hidden w-full max-w-xl bg-slate-800 border border-slate-700 rounded-3xl p-10 text-center shadow-xl">
+    <div id="emptyState" class="{% if words_list or mastered_words_count %}hidden {% endif %}w-full max-w-xl bg-slate-800 border border-slate-700 rounded-3xl p-10 text-center shadow-xl">
         <span class="text-6xl block mb-4">📭</span>
         <h2 class="text-2xl font-extrabold text-white mb-2">No Spelling Words Yet!</h2>
         <p class="text-slate-400 text-sm mb-6">Ask a parent to add spelling words in the Parent Dashboard.</p>
@@ -106,6 +111,22 @@
             ← Back to Dashboard
         </a>
     </div>
+
+    <!-- All Words Mastered State -->
+    <div id="masteredState" class="{% if words_list or not mastered_words_count %}hidden {% endif %}w-full max-w-xl bg-slate-800 border-2 border-yellow-400/70 rounded-3xl p-10 text-center shadow-2xl">
+        <span class="text-6xl block mb-4">🏆</span>
+        <h2 class="text-2xl font-extrabold text-yellow-400 mb-2">All Words Mastered!</h2>
+        <p class="text-slate-300 text-sm mb-2">
+            You have mastered all {{ total_words_count }} spelling word{{ total_words_count|pluralize }}. Amazing work! 🎉
+        </p>
+        <p class="text-slate-500 text-xs mb-6">Ask a parent to add new words when you are ready for more.</p>
+        <a href="{% url 'child_dashboard' profile.id %}" class="inline-block bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-3 rounded-2xl shadow transition">
+            ← Back to Dashboard
+        </a>
+    </div>
+
+    <!-- CSRF token for recording spelling attempts -->
+    <form id="csrfForm" class="hidden">{% csrf_token %}</form>
 
     <!-- ===================== TAB 1: LOOK & LISTEN ===================== -->
     <div id="learnPanel" class="w-full max-w-xl flex flex-col items-center">
@@ -229,13 +250,18 @@
         } catch (e) {
             console.error('Error parsing spelling words data:', e);
         }
-        const hasWords = Array.isArray(words) && words.length > 0;
 
         const learnPanel = document.getElementById('learnPanel');
         const spellPanel = document.getElementById('spellPanel');
         const emptyState = document.getElementById('emptyState');
+        const masteredState = document.getElementById('masteredState');
+        const tabBar = document.getElementById('tabBar');
         const tabLearnBtn = document.getElementById('tabLearnBtn');
         const tabSpellBtn = document.getElementById('tabSpellBtn');
+        const masteredChip = document.getElementById('masteredChip');
+        const masteredChipText = document.getElementById('masteredChipText');
+        const csrfTokenInput = document.querySelector('#csrfForm [name="csrfmiddlewaretoken"]');
+        const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
 
         const learnWordDisplay = document.getElementById('learnWordDisplay');
         const learnSentenceWrap = document.getElementById('learnSentenceWrap');
@@ -273,6 +299,9 @@
         let spellCorrect = 0;
         let spellAttempts = 0;
         let solvedCurrent = false;
+        let masteredTotal = {{ mastered_words_count|default:0 }};
+
+        const recordResultUrl = '{% url "record_spelling_result" profile.id %}';
 
         const TAB_ACTIVE = 'flex-1 py-3 rounded-xl font-extrabold text-sm transition bg-cyan-600 text-white shadow-lg';
         const TAB_IDLE = 'flex-1 py-3 rounded-xl font-extrabold text-sm transition text-slate-400 hover:text-slate-200';
@@ -338,6 +367,11 @@
         let activeTab = 'learn';
 
         function switchTab(tab) {
+            if (!words.length) {
+                showAllMasteredState();
+                return;
+            }
+
             activeTab = tab;
 
             if (tab === 'learn') {
@@ -355,7 +389,7 @@
                 tabLearnBtn.setAttribute('aria-selected', 'false');
                 tabSpellBtn.setAttribute('aria-selected', 'true');
 
-                if (!currentSpell) {
+                if (!currentSpell || !words.some(word => word.id === currentSpell.id)) {
                     nextSpellWord(true);
                 } else if (letterBoxes.length) {
                     const firstEmpty = letterBoxes.find(box => !box.value && !box.readOnly);
@@ -368,7 +402,10 @@
         //  Learn mode (look + listen)
         // ---------------------------------------------------------------
         function nextLearnWord(shouldSpeak = true) {
-            if (!hasWords) return;
+            if (!words.length) {
+                showAllMasteredState();
+                return;
+            }
 
             if (learnQueue.length === 0) learnQueue = shuffle(words);
             currentLearn = learnQueue.pop();
@@ -402,7 +439,10 @@
         //  Spell mode
         // ---------------------------------------------------------------
         function nextSpellWord(shouldSpeak = true) {
-            if (!hasWords) return;
+            if (!words.length) {
+                showAllMasteredState();
+                return;
+            }
 
             if (spellQueue.length === 0) spellQueue = shuffle(words);
             currentSpell = spellQueue.pop();
@@ -563,6 +603,74 @@
             submitBtn.classList.add('hidden');
             nextSpellBtn.classList.remove('hidden');
             tryAgainBtn.classList.toggle('hidden', isCorrect);
+
+            recordSpellingAttempt(currentSpell.id, isCorrect ? 'correct' : 'incorrect');
+        }
+
+        function recordSpellingAttempt(wordId, result) {
+            fetch(recordResultUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ word_id: wordId, result: result }),
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    const word = words.find(item => item.id === wordId);
+                    if (word) {
+                        word.correct_count = data.correct_count;
+                        word.wrong_count = data.wrong_count;
+                    }
+
+                    if (data.mastered) {
+                        handleMasteredWord(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Could not record spelling result:', error);
+                });
+        }
+
+        function handleMasteredWord(data) {
+            const wordId = data.word_id;
+
+            words = words.filter(word => word.id !== wordId);
+            learnQueue = learnQueue.filter(word => word.id !== wordId);
+            spellQueue = spellQueue.filter(word => word.id !== wordId);
+
+            masteredTotal++;
+            updateMasteredChip();
+
+            if (currentSpell && currentSpell.id === wordId) {
+                feedbackPanel.classList.remove('border-emerald-500/60', 'bg-emerald-500/10');
+                feedbackPanel.classList.add('border-yellow-400/70', 'bg-yellow-500/10');
+                feedbackTitle.className = 'text-lg sm:text-xl font-extrabold text-yellow-300';
+                feedbackTitle.textContent = '🏆 Word Mastered!';
+                feedbackText.innerHTML = 'You have spelled <strong class="text-white">' +
+                    escapeHtml(data.word) + '</strong> correctly enough times that it has left the rotation! 🎉';
+                answerReveal.classList.add('hidden');
+            }
+
+            playSoundSafe('reward');
+        }
+
+        function updateMasteredChip() {
+            if (!masteredChipText) return;
+            masteredChipText.textContent = masteredTotal + ' / ' + (words.length + masteredTotal);
+            if (masteredChip) masteredChip.classList.add('pop-in');
+        }
+
+        function showAllMasteredState() {
+            if (tabBar) tabBar.classList.add('hidden');
+            if (learnPanel) learnPanel.classList.add('hidden');
+            if (spellPanel) spellPanel.classList.add('hidden');
+            if (emptyState) emptyState.classList.add('hidden');
+            if (masteredState) masteredState.classList.remove('hidden');
         }
 
         function showFeedback(isCorrect) {
@@ -638,16 +746,9 @@
         //  Init
         // ---------------------------------------------------------------
         document.addEventListener('DOMContentLoaded', () => {
-            if (!hasWords) {
-                emptyState.classList.remove('hidden');
-                learnPanel.classList.add('hidden');
-                spellPanel.classList.add('hidden');
-                if (tabLearnBtn && tabSpellBtn) {
-                    tabLearnBtn.classList.add('hidden');
-                    tabSpellBtn.classList.add('hidden');
-                }
-                return;
-            }
+            // When there are no active words the server has already shown the
+            // empty state or the all-words-mastered state.
+            if (!words.length) return;
 
             nextLearnWord(false);
         });

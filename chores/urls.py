@@ -83,7 +83,9 @@ urlpatterns = [
     path('child/<int:profile_id>/sight-words/', views.sight_word_practice, name='sight_word_practice'),
     path('parent/management/import-sight-words/', views.import_sight_words, name='import_sight_words'),
     path('child/<int:profile_id>/spelling/', views.spelling_practice, name='spelling_practice'),
+    path('child/<int:profile_id>/spelling/result/', views.record_spelling_result, name='record_spelling_result'),
     path('parent/management/import-spelling-words/', views.import_spelling_words, name='import_spelling_words'),
+    path('parent/management/spelling/<int:profile_id>/reset/', views.reset_spelling_progress, name='reset_spelling_progress'),
     path('api/tts/', views.text_to_speech_audio, name='api_tts'),
 ]
 

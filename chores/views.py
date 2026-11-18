@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.db import IntegrityError
+from django.db.models import F
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import (
@@ -82,6 +83,8 @@ def child_dashboard(request, profile_id):
     solved_question_ids = QuizAttempt.objects.filter(child=profile).values_list('question_id', flat=True)
     available_quiz_count = QuizQuestion.objects.filter(child=profile).exclude(id__in=solved_question_ids).count()
     
+    spelling_words = list(SpellingWord.objects.filter(child=profile))
+
     return render(request, 'chores/child_dashboard.html', {
         'profile': profile,
         'task_statuses': task_statuses,
@@ -89,6 +92,8 @@ def child_dashboard(request, profile_id):
         'stars_balance': profile.get_stars_balance(),
         'coins_balance': profile.get_coin_balance(),
         'available_quiz_count': available_quiz_count,
+        'spelling_mastered_count': sum(1 for word in spelling_words if word.is_mastered),
+        'spelling_total_count': len(spelling_words),
     })
 
 
@@ -1284,16 +1289,88 @@ def import_sight_words(request):
 def spelling_practice(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id, user_type='child')
 
-    words_list = list(
-        SpellingWord.objects.filter(child=profile).values('word', 'sentence')
-    )
+    child_words = list(SpellingWord.objects.filter(child=profile))
+    active_words = [word for word in child_words if not word.is_mastered]
+    mastered_words_count = len(child_words) - len(active_words)
+
+    words_list = [
+        {
+            'id': word.id,
+            'word': word.word,
+            'sentence': word.sentence,
+            'correct_count': word.correct_count,
+            'wrong_count': word.wrong_count,
+        }
+        for word in active_words
+    ]
 
     return render(request, 'chores/spelling_words.html', {
         'profile': profile,
         'coin_balance': profile.get_coin_balance(),
         'words_list': words_list,
+        'mastered_words_count': mastered_words_count,
+        'total_words_count': len(child_words),
         'sight_words_count': SightWord.objects.filter(child=profile).count(),
     })
+
+
+@require_POST
+def record_spelling_result(request, profile_id):
+    """Record one correct or incorrect attempt for a child's spelling word."""
+    profile = get_object_or_404(Profile, id=profile_id, user_type='child')
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+    if not isinstance(payload, dict):
+        return JsonResponse({'error': 'A JSON object is required.'}, status=400)
+
+    word_id = payload.get('word_id')
+    if not isinstance(word_id, int):
+        return JsonResponse({'error': 'A numeric word_id is required.'}, status=400)
+
+    word = get_object_or_404(SpellingWord, id=word_id, child=profile)
+
+    result = payload.get('result')
+    if result not in ('correct', 'incorrect'):
+        return JsonResponse({'error': "result must be 'correct' or 'incorrect'."}, status=400)
+
+    counter = 'correct_count' if result == 'correct' else 'wrong_count'
+    SpellingWord.objects.filter(pk=word.pk).update(
+        **{counter: F(counter) + 1},
+        last_practiced_at=timezone.now()
+    )
+    word.refresh_from_db()
+
+    return JsonResponse({
+        'word_id': word.id,
+        'word': word.word,
+        'correct_count': word.correct_count,
+        'wrong_count': word.wrong_count,
+        'mastery_lead': word.mastery_lead,
+        'mastery_lead_needed': SpellingWord.MASTERY_LEAD,
+        'mastered': word.is_mastered,
+    })
+
+
+@require_POST
+def reset_spelling_progress(request, profile_id):
+    """Parent action: clear every correct/incorrect count for one child."""
+    if not request.session.get('is_parent_authenticated'):
+        return redirect('parent_login')
+
+    child = get_object_or_404(Profile, id=profile_id, user_type='child')
+
+    SpellingWord.objects.filter(child=child).update(
+        correct_count=0,
+        wrong_count=0,
+        last_practiced_at=None,
+    )
+    messages.success(request, f"Reset spelling progress for {child.name}.")
+
+    return redirect('management_hub')
 
 
 def _parse_spelling_text(raw_text):

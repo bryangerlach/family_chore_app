@@ -281,6 +281,10 @@ class SightWord(models.Model):
 
 
 class SpellingWord(models.Model):
+    # A word is mastered once the child has spelled it correctly 5 more times
+    # than incorrectly (for example 5-0, 6-1 or 10-4).
+    MASTERY_LEAD = 5
+
     child = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='spelling_words')
     word = models.CharField(max_length=50)
     sentence = models.TextField(
@@ -288,11 +292,24 @@ class SpellingWord(models.Model):
         default='',
         help_text="A sentence that uses the word. It is read aloud as a hint while spelling."
     )
+    correct_count = models.PositiveIntegerField(default=0)
+    wrong_count = models.PositiveIntegerField(default=0)
+    last_practiced_at = models.DateTimeField(blank=True, null=True)
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('child', 'word')
         ordering = ('word',)
+
+    @property
+    def mastery_lead(self):
+        """How many more times the word was spelled correctly than incorrectly."""
+        return self.correct_count - self.wrong_count
+
+    @property
+    def is_mastered(self):
+        """True once the word no longer needs to appear in the practice rotation."""
+        return self.mastery_lead >= self.MASTERY_LEAD
 
     def __str__(self):
         return f"{self.child.name}: {self.word}"

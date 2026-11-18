@@ -391,19 +391,32 @@
                         <div class="space-y-2">
                             {% for p in profiles %}{% if p.user_type == 'child' %}
                                 <div class="bg-slate-700/40 border border-slate-600 p-3 rounded-xl text-xs">
-                                    <div class="font-bold text-emerald-300 mb-2 flex items-center gap-1.5">
+                                    <div class="font-bold text-emerald-300 mb-2 flex flex-wrap items-center gap-1.5">
                                         <span>{{ p.emoji }}</span>
                                         <span>{{ p.name }}'s Words:</span>
                                         <span class="text-slate-400 font-normal">({{ p.spelling_words.count }} total)</span>
+                                        {% if p.spelling_words.exists %}
+                                        <form action="{% url 'reset_spelling_progress' p.id %}" method="POST" class="ml-auto">
+                                            {% csrf_token %}
+                                            <button type="submit" onclick="return confirm('Reset correct/incorrect counts for {{ p.name|escapejs }}? This does not delete any words.')" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold px-2 py-1 rounded-lg text-[11px] transition">
+                                                ♻️ Reset Progress
+                                            </button>
+                                        </form>
+                                        {% endif %}
                                     </div>
                                     <div class="space-y-1.5">
                                         {% for sp in p.spelling_words.all %}
-                                            <div class="bg-slate-800 border border-slate-600 px-2.5 py-1.5 rounded-lg">
-                                                <span class="font-mono font-bold text-emerald-200">{{ sp.word }}</span>
+                                            <div class="bg-slate-800 border border-slate-600 px-2.5 py-1.5 rounded-lg flex flex-wrap items-center gap-1.5">
+                                                <span class="font-mono font-bold text-emerald-200 text-xs">{{ sp.word }}</span>
+                                                <span class="bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5 rounded font-bold" title="Correct spellings">✅ {{ sp.correct_count }}</span>
+                                                <span class="bg-rose-500/15 text-rose-300 px-1.5 py-0.5 rounded font-bold" title="Incorrect spellings">❌ {{ sp.wrong_count }}</span>
+                                                {% if sp.is_mastered %}
+                                                    <span class="bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded font-bold">🏆 Mastered</span>
+                                                {% endif %}
                                                 {% if sp.sentence %}
-                                                    <span class="text-slate-400"> — {{ sp.sentence }}</span>
+                                                    <span class="text-slate-400">— {{ sp.sentence }}</span>
                                                 {% else %}
-                                                    <span class="text-slate-500 italic"> — no sentence</span>
+                                                    <span class="text-slate-500 italic">— no sentence</span>
                                                 {% endif %}
                                             </div>
                                         {% empty %}
